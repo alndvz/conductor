@@ -1,5 +1,5 @@
 # Tasks
 
 - [ ] Test hello-world plugin
-- [ ] Verify file change detection
+- [x] Verify file change detection
 - [ ] Confirm TICK messages arrive
