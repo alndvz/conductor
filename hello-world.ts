@@ -2,6 +2,15 @@ import type { Plugin } from "@opencode-ai/plugin"
 
 const WATCH_FILES = ["TASKS.md"]
 
+const LOGO = [
+  "  ██████╗ ██████╗ ███╗   ██╗██████╗ ██╗   ██╗ ██████╗████████╗ ██████╗ ██████╗ ",
+  " ██╔════╝██╔═══██╗████╗  ██║██╔══██╗██║   ██║██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗",
+  " ██║     ██║   ██║██╔██╗ ██║██║  ██║██║   ██║██║        ██║   ██║   ██║██████╔╝",
+  " ██║     ██║   ██║██║╚██╗██║██║  ██║██║   ██║██║        ██║   ██║   ██║██╔══██╗",
+  " ╚██████╗╚██████╔╝██║ ╚████║██████╔╝╚██████╔╝╚██████╗   ██║   ╚██████╔╝██║  ██║",
+  "  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═════╝  ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝",
+]
+
 export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => {
   if (!process.env.CONDUCTOR) return { event: async () => {}, dispose: async () => {} }
 
@@ -23,21 +32,56 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
   const activeSessions = new Set<string>()
   const tickIntervals = new Map<string, ReturnType<typeof setInterval>>()
   const fileHashes = new Map<string, string>()
+  const sessionStatus = new Map<string, "idle" | "busy" | "retry">()
+  const pendingMessages = new Map<string, string[]>()
 
   async function gitHash(file: string) {
     const result = await $`git -C ${worktree} log -1 --format=%H -- ${file}`.quiet()
     return result.stdout.toString().trim() || ""
   }
 
-  async function notifyAllSessions(message: string) {
-    for (const sessionID of activeSessions) {
+  async function drainPending(sessionID: string) {
+    const messages = pendingMessages.get(sessionID)
+    if (!messages || messages.length === 0) return
+    pendingMessages.set(sessionID, [])
+    for (const text of messages) {
       await client.session.prompt({
         path: { id: sessionID },
         body: {
           noReply: false,
-          parts: [{ type: "text", text: message }],
+          parts: [{ type: "text", text }],
         },
       }).catch(() => {})
+    }
+  }
+
+  async function sendOrQueue(sessionID: string, message: string) {
+    const status = sessionStatus.get(sessionID)
+    if (status === "busy" || status === "retry") {
+      const queue = pendingMessages.get(sessionID) || []
+      queue.push(message)
+      pendingMessages.set(sessionID, queue)
+      await client.app.log({
+        body: {
+          service: "hello-world",
+          level: "info",
+          message: `### HELLO-WORLD QUEUED | session=${sessionID} | message=${message} ###`,
+        },
+      })
+      return
+    }
+    await client.session.prompt({
+      path: { id: sessionID },
+      body: {
+        noReply: false,
+        parts: [{ type: "text", text: message }],
+      },
+    }).catch(() => {})
+  }
+
+  async function notifyAllSessions(message: string) {
+    for (const sessionID of activeSessions) {
+      await sendOrQueue(sessionID, message)
     }
   }
 
@@ -112,6 +156,14 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
         })
 
         startTick(sessionID)
+
+        await client.session.prompt({
+          path: { id: sessionID },
+          body: {
+            noReply: true,
+            parts: [{ type: "text", text: LOGO.join("\n") }],
+          },
+        }).catch(() => {})
       }
 
       if (event.type === "session.next.agent.switched") {
@@ -133,11 +185,29 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
         }).catch(() => {})
       }
 
+      if (event.type === "session.status") {
+        const { sessionID, status } = event.properties || {}
+        if (!sessionID || !status) return
+        sessionStatus.set(sessionID, status.type)
+        if (status.type === "idle") {
+          await drainPending(sessionID)
+        }
+      }
+
+      if (event.type === "session.idle") {
+        const sessionID = event.properties?.sessionID
+        if (!sessionID) return
+        sessionStatus.set(sessionID, "idle")
+        await drainPending(sessionID)
+      }
+
       if (event.type === "session.deleted") {
         const sessionID = event.properties?.sessionID
         if (!sessionID) return
         activeSessions.delete(sessionID)
         stopTick(sessionID)
+        sessionStatus.delete(sessionID)
+        pendingMessages.delete(sessionID)
       }
     },
 
@@ -147,6 +217,8 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
       tickIntervals.clear()
       activeSessions.clear()
       fileHashes.clear()
+      sessionStatus.clear()
+      pendingMessages.clear()
     },
   }
 }
