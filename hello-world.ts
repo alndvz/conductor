@@ -3,20 +3,22 @@ import type { Plugin } from "@opencode-ai/plugin"
 const WATCH_FILES = ["TASKS.md"]
 
 export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => {
-  await client.app.log({
+  if (!process.env.CONDUCTOR) return { event: async () => {}, dispose: async () => {} }
+
+  client.app.log({
     body: {
       service: "hello-world",
       level: "info",
       message: `##################################################################################`,
     },
-  })
-  await client.app.log({
+  }).catch(() => {})
+  client.app.log({
     body: {
       service: "hello-world",
       level: "info",
       message: `### HELLO-WORLD PLUGIN LOADED | directory=${directory} | worktree=${worktree} ###`,
     },
-  })
+  }).catch(() => {})
 
   const activeSessions = new Set<string>()
   const tickIntervals = new Map<string, ReturnType<typeof setInterval>>()
@@ -32,7 +34,7 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
       await client.session.prompt({
         path: { id: sessionID },
         body: {
-          noReply: true,
+          noReply: false,
           parts: [{ type: "text", text: message }],
         },
       }).catch(() => {})
@@ -109,14 +111,26 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
           },
         })
 
+        startTick(sessionID)
+      }
+
+      if (event.type === "session.next.agent.switched") {
+        const { sessionID, agent } = event.properties || {}
+        if (!sessionID) return
+        await client.app.log({
+          body: {
+            service: "hello-world",
+            level: "info",
+            message: `### HELLO-WORLD AGENT SWITCHED | session=${sessionID} | agent=${agent} ###`,
+          },
+        })
         await client.session.prompt({
           path: { id: sessionID },
           body: {
-            parts: [{ type: "text", text: "WHAT IS YOUR NAME" }],
+            noReply: true,
+            parts: [{ type: "text", text: `Agent switched to ${agent}` }],
           },
         }).catch(() => {})
-
-        startTick(sessionID)
       }
 
       if (event.type === "session.deleted") {
