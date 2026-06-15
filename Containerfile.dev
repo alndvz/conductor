@@ -1,0 +1,23 @@
+FROM fedora:latest
+
+RUN dnf -y update && \
+    dnf -y install \
+      bash \
+      bubblewrap \
+      curl \
+      docker \
+      docker-compose \
+      findutils \
+      gcc-c++ \
+      git \
+      make \
+      nodejs \
+      nodejs-devel \
+      npm \
+      procps-ng \
+      shadow-utils \
+      which && \
+    npm install -g opencode-ai bun && \
+    dnf clean all
+
+WORKDIR /workspace
