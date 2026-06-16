@@ -11,21 +11,21 @@ const LOGO = [
   "  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═════╝  ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝",
 ]
 
-export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => {
+export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }) => {
   if (!process.env.CONDUCTOR) return { event: async () => {}, dispose: async () => {} }
 
   client.app.log({
     body: {
-      service: "hello-world",
+      service: "conductor-plugin",
       level: "info",
       message: `##################################################################################`,
     },
   }).catch(() => {})
   client.app.log({
     body: {
-      service: "hello-world",
+      service: "conductor-plugin",
       level: "info",
-      message: `### HELLO-WORLD PLUGIN LOADED | directory=${directory} | worktree=${worktree} ###`,
+      message: `### CONDUCTOR-PLUGIN PLUGIN LOADED | directory=${directory} | worktree=${worktree} ###`,
     },
   }).catch(() => {})
 
@@ -69,9 +69,9 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
       pendingMessages.set(sessionID, queue)
       await client.app.log({
         body: {
-          service: "hello-world",
+          service: "conductor-plugin",
           level: "info",
-          message: `### HELLO-WORLD QUEUED | session=${sessionID} | message=${message} ###`,
+          message: `### CONDUCTOR-PLUGIN QUEUED | session=${sessionID} | message=${message} ###`,
         },
       })
       return
@@ -97,9 +97,9 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
     const id = setInterval(async () => {
       await client.app.log({
         body: {
-          service: "hello-world",
+          service: "conductor-plugin",
           level: "info",
-          message: `### HELLO-WORLD TICK | session=${sessionID} ###`,
+          message: `### CONDUCTOR-PLUGIN TICK | session=${sessionID} ###`,
         },
       })
     }, 10000)
@@ -119,9 +119,9 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
       const hash = await gitHash(file)
       await client.app.log({
         body: {
-          service: "hello-world",
+          service: "conductor-plugin",
           level: "info",
-          message: `### HELLO-WORLD POLL | file=${file} | hash=${hash || "(none)"} ###`,
+          message: `### CONDUCTOR-PLUGIN POLL | file=${file} | hash=${hash || "(none)"} ###`,
         },
       })
       if (!hash) continue
@@ -130,9 +130,9 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
       if (previous && previous !== hash) {
         await client.app.log({
           body: {
-            service: "hello-world",
+            service: "conductor-plugin",
             level: "info",
-            message: `### HELLO-WORLD FILE CHANGED | file=${file} | previous=${previous} | current=${hash} ###`,
+            message: `### CONDUCTOR-PLUGIN FILE CHANGED | file=${file} | previous=${previous} | current=${hash} ###`,
           },
         })
         const diff = await gitDiff(previous, hash, file)
@@ -151,9 +151,9 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
 
         await client.app.log({
           body: {
-            service: "hello-world",
+            service: "conductor-plugin",
             level: "info",
-            message: `### HELLO-WORLD SESSION CREATED | session=${sessionID} | directory=${directory} ###`,
+            message: `### CONDUCTOR-PLUGIN SESSION CREATED | session=${sessionID} | directory=${directory} ###`,
           },
         })
 
@@ -167,9 +167,9 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
         if (!sessionID) return
         await client.app.log({
           body: {
-            service: "hello-world",
+            service: "conductor-plugin",
             level: "info",
-            message: `### HELLO-WORLD AGENT SWITCHED | session=${sessionID} | agent=${agent} ###`,
+            message: `### CONDUCTOR-PLUGIN AGENT SWITCHED | session=${sessionID} | agent=${agent} ###`,
           },
         })
         await sendOrQueue(sessionID, `Agent switched to ${agent}`, true)
