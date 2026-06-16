@@ -6,4 +6,4 @@
 - [x] Test file change notification with conductor
 - [x] Route all messages through sendOrQueue
 - [x] Include diff in file change notifications
-- [ ] Extract pure functions from conductor-plugin.ts: pull out message queueing logic (shouldQueue, enqueue, dequeue), session state transitions (addSession, removeSession, setStatus), notification formatting, and git helpers (gitHash, gitDiff) into separate testable modules. Keep the plugin as a thin orchestrator wiring them together.
+- [x] Extract pure functions from conductor-plugin.ts: pull out message queueing logic (shouldQueue, enqueue, dequeue), session state transitions (addSession, removeSession, setStatus), notification formatting, and git helpers (gitHash, gitDiff) into separate testable modules. Keep the plugin as a thin orchestrator wiring them together.
