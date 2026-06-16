@@ -40,6 +40,11 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
     return result.stdout.toString().trim() || ""
   }
 
+  async function gitDiff(from: string, to: string, file: string) {
+    const result = await $`git -C ${worktree} diff ${from}..${to} -- ${file}`.quiet()
+    return result.stdout.toString().trim() || "(empty diff)"
+  }
+
   async function drainPending(sessionID: string) {
     const messages = pendingMessages.get(sessionID)
     if (!messages || messages.length === 0) return
@@ -97,7 +102,6 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
           message: `### HELLO-WORLD TICK | session=${sessionID} ###`,
         },
       })
-      await sendOrQueue(sessionID, "TICK", true)
     }, 10000)
     tickIntervals.set(sessionID, id)
   }
@@ -131,7 +135,9 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
             message: `### HELLO-WORLD FILE CHANGED | file=${file} | previous=${previous} | current=${hash} ###`,
           },
         })
-        await notifyAllSessions(`File ${file} changed (commit ${hash.slice(0, 7)})`)
+        const diff = await gitDiff(previous, hash, file)
+        const codeFence = "```"
+        await notifyAllSessions(`File ${file} changed (commit ${hash.slice(0, 7)})\n\n${codeFence}diff\n${diff}\n${codeFence}`)
       }
     }
   }, 5000)
