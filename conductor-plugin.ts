@@ -1,15 +1,12 @@
 import type { Plugin } from "@opencode-ai/plugin"
+import { gitHash, gitDiff } from "./git-helpers.js"
+import { shouldQueue, enqueue, dequeueAll } from "./message-queue.js"
+import type { QueuedMessage } from "./message-queue.js"
+import { addSession, removeSession, setStatus } from "./session-state.js"
+import type { SessionStatus } from "./session-state.js"
+import { LOGO, formatFileChangeNotification, formatAgentSwitchNotification } from "./notifications.js"
 
 const WATCH_FILES = ["TASKS.md"]
-
-const LOGO = [
-  "  ██████╗ ██████╗ ███╗   ██╗██████╗ ██╗   ██╗ ██████╗████████╗ ██████╗ ██████╗ ",
-  " ██╔════╝██╔═══██╗████╗  ██║██╔══██╗██║   ██║██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗",
-  " ██║     ██║   ██║██╔██╗ ██║██║  ██║██║   ██║██║        ██║   ██║   ██║██████╔╝",
-  " ██║     ██║   ██║██║╚██╗██║██║  ██║██║   ██║██║        ██║   ██║   ██║██╔══██╗",
-  " ╚██████╗╚██████╔╝██║ ╚████║██████╔╝╚██████╔╝╚██████╗   ██║   ╚██████╔╝██║  ██║",
-  "  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═════╝  ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝",
-]
 
 export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }) => {
   if (!process.env.CONDUCTOR) return { event: async () => {}, dispose: async () => {} }
@@ -32,23 +29,12 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
   const activeSessions = new Set<string>()
   const tickIntervals = new Map<string, ReturnType<typeof setInterval>>()
   const fileHashes = new Map<string, string>()
-  const sessionStatus = new Map<string, "idle" | "busy" | "retry">()
-  const pendingMessages = new Map<string, { text: string; noReply: boolean }[]>()
-
-  async function gitHash(file: string) {
-    const result = await $`git -C ${worktree} log -1 --format=%H -- ${file}`.quiet()
-    return result.stdout.toString().trim() || ""
-  }
-
-  async function gitDiff(from: string, to: string, file: string) {
-    const result = await $`git -C ${worktree} diff ${from}..${to} -- ${file}`.quiet()
-    return result.stdout.toString().trim() || "(empty diff)"
-  }
+  const sessionStatus = new Map<string, SessionStatus>()
+  const pendingMessages = new Map<string, QueuedMessage[]>()
 
   async function drainPending(sessionID: string) {
-    const messages = pendingMessages.get(sessionID)
-    if (!messages || messages.length === 0) return
-    pendingMessages.set(sessionID, [])
+    const messages = dequeueAll(pendingMessages, sessionID)
+    if (messages.length === 0) return
     for (const { text, noReply } of messages) {
       await client.session.prompt({
         path: { id: sessionID },
@@ -62,11 +48,8 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
   }
 
   async function sendOrQueue(sessionID: string, message: string, noReply = false) {
-    const status = sessionStatus.get(sessionID)
-    if (status === "busy" || status === "retry") {
-      const queue = pendingMessages.get(sessionID) || []
-      queue.push({ text: message, noReply })
-      pendingMessages.set(sessionID, queue)
+    if (shouldQueue(sessionStatus.get(sessionID) ?? "")) {
+      enqueue(pendingMessages, sessionID, { text: message, noReply })
       await client.app.log({
         body: {
           service: "conductor-plugin",
@@ -76,14 +59,14 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
       })
       return
     }
-      await client.session.prompt({
-        path: { id: sessionID },
-        body: {
-          agent: "conductor",
-          noReply,
-          parts: [{ type: "text", text: message }],
-        },
-      }).catch(() => {})
+    await client.session.prompt({
+      path: { id: sessionID },
+      body: {
+        agent: "conductor",
+        noReply,
+        parts: [{ type: "text", text: message }],
+      },
+    }).catch(() => {})
   }
 
   async function notifyAllSessions(message: string) {
@@ -116,7 +99,7 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
 
   const pollInterval = setInterval(async () => {
     for (const file of WATCH_FILES) {
-      const hash = await gitHash(file)
+      const hash = await gitHash($, worktree, file)
       await client.app.log({
         body: {
           service: "conductor-plugin",
@@ -135,9 +118,8 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
             message: `### CONDUCTOR-PLUGIN FILE CHANGED | file=${file} | previous=${previous} | current=${hash} ###`,
           },
         })
-        const diff = await gitDiff(previous, hash, file)
-        const codeFence = "```"
-        await notifyAllSessions(`File ${file} changed (commit ${hash.slice(0, 7)})\n\n${codeFence}diff\n${diff}\n${codeFence}`)
+        const diff = await gitDiff($, worktree, previous, hash, file)
+        await notifyAllSessions(formatFileChangeNotification(file, hash, diff))
       }
     }
   }, 5000)
@@ -147,7 +129,7 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
       if (event.type === "session.created") {
         const sessionID = event.properties?.sessionID
         if (!sessionID) return
-        activeSessions.add(sessionID)
+        addSession(activeSessions, sessionID)
 
         await client.app.log({
           body: {
@@ -172,13 +154,13 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
             message: `### CONDUCTOR-PLUGIN AGENT SWITCHED | session=${sessionID} | agent=${agent} ###`,
           },
         })
-        await sendOrQueue(sessionID, `Agent switched to ${agent}`, true)
+        await sendOrQueue(sessionID, formatAgentSwitchNotification(agent), true)
       }
 
       if (event.type === "session.status") {
         const { sessionID, status } = event.properties || {}
         if (!sessionID || !status) return
-        sessionStatus.set(sessionID, status.type)
+        setStatus(sessionStatus, sessionID, status.type as SessionStatus)
         if (status.type === "idle") {
           await drainPending(sessionID)
         }
@@ -187,17 +169,14 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
       if (event.type === "session.idle") {
         const sessionID = event.properties?.sessionID
         if (!sessionID) return
-        sessionStatus.set(sessionID, "idle")
+        setStatus(sessionStatus, sessionID, "idle")
         await drainPending(sessionID)
       }
 
       if (event.type === "session.deleted") {
         const sessionID = event.properties?.sessionID
         if (!sessionID) return
-        activeSessions.delete(sessionID)
-        stopTick(sessionID)
-        sessionStatus.delete(sessionID)
-        pendingMessages.delete(sessionID)
+        removeSession(activeSessions, tickIntervals, sessionStatus, pendingMessages, sessionID)
       }
     },
 
