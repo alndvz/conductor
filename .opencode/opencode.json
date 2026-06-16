@@ -15,6 +15,43 @@
         "Grep": true,
         "WebFetch": true
       }
+    },
+    "feature": {
+      "description": "Primary agent that captures feature requests into TASKS.md for the conductor to detect",
+      "mode": "primary",
+      "model": "opencode-go/deepseek-v4-pro",
+      "tools": {
+        "Bash": true,
+        "Read": true,
+        "Write": true,
+        "Edit": true,
+        "Glob": true,
+        "Grep": true
+      }
+    },
+    "implementor": {
+      "description": "Sub-agent that implements tasks delegated by the conductor",
+      "mode": "subagent",
+      "model": "opencode-go/deepseek-v4-pro",
+      "tools": {
+        "Bash": true,
+        "Read": true,
+        "Write": true,
+        "Edit": true,
+        "Glob": true,
+        "Grep": true
+      }
+    },
+    "review": {
+      "description": "Sub-agent that reviews code after implementation",
+      "mode": "subagent",
+      "model": "opencode-go/deepseek-v4-pro",
+      "tools": {
+        "Bash": true,
+        "Read": true,
+        "Glob": true,
+        "Grep": true
+      }
     }
   },
   "plugin": []
