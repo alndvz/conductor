@@ -33,7 +33,7 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
   const tickIntervals = new Map<string, ReturnType<typeof setInterval>>()
   const fileHashes = new Map<string, string>()
   const sessionStatus = new Map<string, "idle" | "busy" | "retry">()
-  const pendingMessages = new Map<string, string[]>()
+  const pendingMessages = new Map<string, { text: string; noReply: boolean }[]>()
 
   async function gitHash(file: string) {
     const result = await $`git -C ${worktree} log -1 --format=%H -- ${file}`.quiet()
@@ -44,22 +44,23 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
     const messages = pendingMessages.get(sessionID)
     if (!messages || messages.length === 0) return
     pendingMessages.set(sessionID, [])
-    for (const text of messages) {
+    for (const { text, noReply } of messages) {
       await client.session.prompt({
         path: { id: sessionID },
         body: {
-          noReply: false,
+          agent: "conductor",
+          noReply,
           parts: [{ type: "text", text }],
         },
       }).catch(() => {})
     }
   }
 
-  async function sendOrQueue(sessionID: string, message: string) {
+  async function sendOrQueue(sessionID: string, message: string, noReply = false) {
     const status = sessionStatus.get(sessionID)
     if (status === "busy" || status === "retry") {
       const queue = pendingMessages.get(sessionID) || []
-      queue.push(message)
+      queue.push({ text: message, noReply })
       pendingMessages.set(sessionID, queue)
       await client.app.log({
         body: {
@@ -70,13 +71,14 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
       })
       return
     }
-    await client.session.prompt({
-      path: { id: sessionID },
-      body: {
-        noReply: false,
-        parts: [{ type: "text", text: message }],
-      },
-    }).catch(() => {})
+      await client.session.prompt({
+        path: { id: sessionID },
+        body: {
+          agent: "conductor",
+          noReply,
+          parts: [{ type: "text", text: message }],
+        },
+      }).catch(() => {})
   }
 
   async function notifyAllSessions(message: string) {
@@ -95,13 +97,7 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
           message: `### HELLO-WORLD TICK | session=${sessionID} ###`,
         },
       })
-      await client.session.prompt({
-        path: { id: sessionID },
-        body: {
-          noReply: true,
-          parts: [{ type: "text", text: "TICK" }],
-        },
-      }).catch(() => {})
+      await sendOrQueue(sessionID, "TICK", true)
     }, 10000)
     tickIntervals.set(sessionID, id)
   }
@@ -157,13 +153,7 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
 
         startTick(sessionID)
 
-        await client.session.prompt({
-          path: { id: sessionID },
-          body: {
-            noReply: true,
-            parts: [{ type: "text", text: LOGO.join("\n") }],
-          },
-        }).catch(() => {})
+        await sendOrQueue(sessionID, LOGO.join("\n"), true)
       }
 
       if (event.type === "session.next.agent.switched") {
@@ -176,13 +166,7 @@ export const HelloWorld: Plugin = async ({ client, directory, worktree, $ }) => 
             message: `### HELLO-WORLD AGENT SWITCHED | session=${sessionID} | agent=${agent} ###`,
           },
         })
-        await client.session.prompt({
-          path: { id: sessionID },
-          body: {
-            noReply: true,
-            parts: [{ type: "text", text: `Agent switched to ${agent}` }],
-          },
-        }).catch(() => {})
+        await sendOrQueue(sessionID, `Agent switched to ${agent}`, true)
       }
 
       if (event.type === "session.status") {
