@@ -20,7 +20,6 @@
     "feature": {
       "description": "Primary agent that captures feature requests into TASKS.md for the conductor to detect",
       "mode": "primary",
-      "permission": "allow",
       "model": "opencode-go/deepseek-v4-pro",
       "tools": {
         "Bash": true,
@@ -34,7 +33,6 @@
     "implementor": {
       "description": "Sub-agent that implements tasks delegated by the conductor",
       "mode": "subagent",
-      "permission": "allow",
       "model": "opencode-go/deepseek-v4-pro",
       "tools": {
         "Bash": true,
@@ -48,7 +46,6 @@
     "review": {
       "description": "Sub-agent that reviews code after implementation",
       "mode": "subagent",
-      "permission": "allow",
       "model": "opencode-go/deepseek-v4-pro",
       "tools": {
         "Bash": true,
