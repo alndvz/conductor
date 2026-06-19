@@ -73,14 +73,20 @@ Check whether `$ARGUMENTS/.opencode/opencode.json` exists:
 3. Write the merged config back — preserve all existing top-level keys, the
    `$schema` field, and the ordering as much as practical.
 4. Report which agents were added and which were skipped (already present).
+5. Check the `default_agent` field in the target config:
+   - If it is not set, add `"default_agent": "conductor"`.
+   - If it is already set to a value other than `"conductor"`, do not change
+     it, but note this in the report and advise the user that the existing
+     `default_agent` will remain unchanged.
 
 ### If it does not exist
 
 1. Create `$ARGUMENTS/.opencode/opencode.json` by copying the full source
-   config, but **omit the `plugin` array** if it is empty (the source's
-   `plugin: []` is fine to copy, but a bare `"plugin": []` is harmless).
+   config. If the source has an empty `plugin` array (`"plugin": []`),
+   you may omit it — it is harmless to keep or remove.
 2. Ensure the `$schema` field is present:
    `"$schema": "https://opencode.ai/config.json"`.
+3. Ensure `"default_agent": "conductor"` is set in the config.
 
 ## Step 5 — Scaffold TASKS.md
 
@@ -111,7 +117,7 @@ In the target directory (`$ARGUMENTS`), check whether a `package.json` exists:
 - If it exists, run `npm install` to ensure the required packages
   (`@opencode-ai/plugin` and `@opencode-ai/sdk`) are present. If they are
   missing from `package.json`, run
-  `npm install @opencode-ai/plugin@1.17.7 @opencode-ai/sdk@1.17.7`.
+   `npm install @opencode-ai/plugin@^1.17.7 @opencode-ai/sdk@^1.17.7`.
 - If `package.json` does not exist, create one with the required dependencies
   and then run `npm install`. A minimal `package.json`:
 
@@ -139,6 +145,7 @@ Summarize every action taken. Use a table for clarity:
 | Merged config: implementor    | added / skipped          |
 | Merged config: review         | added / skipped          |
 | Merged config: feature        | added / skipped          |
+| Set default_agent: conductor  | set / already-set / kept-existing: <other> |
 | Scaffolded TASKS.md           | created / already-existed |
 | Copied conductor.sh + chmod   | done                     |
 | Installed npm dependencies    | done                     |
