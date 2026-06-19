@@ -1,10 +1,113 @@
-import type { Plugin } from "@opencode-ai/plugin"
-import { gitHash, gitDiff } from "./git-helpers.js"
-import { shouldQueue, enqueue, dequeueAll } from "./message-queue.js"
-import type { QueuedMessage } from "./message-queue.js"
-import { addSession, removeSession, setStatus } from "./session-state.js"
-import type { SessionStatus } from "./session-state.js"
-import { LOGO, formatFileChangeNotification, formatAgentSwitchNotification } from "./notifications.js"
+import type { Plugin, PluginInput } from "@opencode-ai/plugin"
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+type Shell = PluginInput["$"]
+
+interface QueuedMessage {
+  text: string
+  noReply: boolean
+}
+
+type SessionStatus = "idle" | "busy" | "retry"
+
+// ── Git helpers ──────────────────────────────────────────────────────────────
+
+async function gitHash($: Shell, worktree: string, file: string): Promise<string> {
+  const result = await $`git -C ${worktree} log -1 --format=%H -- ${file}`.quiet()
+  return result.stdout.toString().trim() || ""
+}
+
+async function gitDiff($: Shell, worktree: string, from: string, to: string, file: string): Promise<string> {
+  const result = await $`git -C ${worktree} diff ${from}..${to} -- ${file}`.quiet()
+  return result.stdout.toString().trim() || "(empty diff)"
+}
+
+// ── Message queue ────────────────────────────────────────────────────────────
+
+function shouldQueue(status: string): boolean {
+  return status === "busy" || status === "retry"
+}
+
+function enqueue(
+  pendingMessages: Map<string, QueuedMessage[]>,
+  sessionID: string,
+  message: QueuedMessage,
+): QueuedMessage[] {
+  const queue = pendingMessages.get(sessionID) ?? []
+  queue.push(message)
+  pendingMessages.set(sessionID, queue)
+  return queue
+}
+
+function dequeueAll(
+  pendingMessages: Map<string, QueuedMessage[]>,
+  sessionID: string,
+): QueuedMessage[] {
+  const messages = pendingMessages.get(sessionID) ?? []
+  pendingMessages.set(sessionID, [])
+  return messages
+}
+
+// ── Notifications ────────────────────────────────────────────────────────────
+
+const LOGO = [
+  "  ██████╗ ██████╗ ███╗   ██╗██████╗ ██╗   ██╗ ██████╗████████╗ ██████╗ ██████╗ ",
+  " ██╔════╝██╔═══██╗████╗  ██║██╔══██╗██║   ██║██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗",
+  " ██║     ██║   ██║██╔██╗ ██║██║  ██║██║   ██║██║        ██║   ██║   ██║██████╔╝",
+  " ██║     ██║   ██║██║╚██╗██║██║  ██║██║   ██║██║        ██║   ██║   ██║██╔══██╗",
+  " ╚██████╗╚██████╔╝██║ ╚████║██████╔╝╚██████╔╝╚██████╗   ██║   ╚██████╔╝██║  ██║",
+  "  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═════╝  ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝",
+]
+
+function formatFileChangeNotification(file: string, commit: string, diff: string): string {
+  const codeFence = "```"
+  return `File ${file} changed (commit ${commit.slice(0, 7)})\n\n${codeFence}diff\n${diff}\n${codeFence}`
+}
+
+function formatAgentSwitchNotification(agent: string): string {
+  return `Agent switched to ${agent}`
+}
+
+// ── Session state ────────────────────────────────────────────────────────────
+
+function addSession(activeSessions: Set<string>, sessionID: string): void {
+  activeSessions.add(sessionID)
+}
+
+function removeSession(
+  activeSessions: Set<string>,
+  tickIntervals: Map<string, ReturnType<typeof setInterval>>,
+  sessionStatus: Map<string, SessionStatus>,
+  pendingMessages: Map<string, unknown[]>,
+  sessionID: string,
+): void {
+  activeSessions.delete(sessionID)
+  const intervalId = tickIntervals.get(sessionID)
+  if (intervalId) {
+    clearInterval(intervalId)
+    tickIntervals.delete(sessionID)
+  }
+  sessionStatus.delete(sessionID)
+  pendingMessages.delete(sessionID)
+}
+
+function setStatus(
+  sessionStatus: Map<string, SessionStatus>,
+  sessionID: string,
+  status: SessionStatus,
+): void {
+  sessionStatus.set(sessionID, status)
+}
+
+function getStatus(
+  sessionStatus: Map<string, SessionStatus>,
+  sessionID: string,
+): SessionStatus | undefined {
+  return sessionStatus.get(sessionID)
+}
+
+// ── Plugin ───────────────────────────────────────────────────────────────────
 
 const WATCH_FILES = ["TASKS.md"]
 
