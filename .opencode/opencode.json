@@ -4,7 +4,9 @@
     "conductor": {
       "description": "Primary agent that orchestrates workflows by delegating jobs to sub-agents",
       "mode": "primary",
-      "permission": "allow",
+      "permission": {
+        "*": "allow"
+      },
       "model": "opencode-go/deepseek-v4-pro",
       "tools": {
         "Task": true,
