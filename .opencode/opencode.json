@@ -18,10 +18,11 @@
       }
     },
     "feature": {
-      "description": "Primary agent that captures feature requests into TASKS.md for the conductor to detect",
+      "description": "Primary agent that discusses user feature requests conversationally, with planning support before committing tasks to TASKS.md.",
       "mode": "primary",
       "model": "opencode-go/deepseek-v4-pro",
       "tools": {
+        "Task": true,
         "Bash": true,
         "Read": true,
         "Write": true,
