@@ -51,6 +51,28 @@ When it is time to commit tasks:
 6. Stage and commit TASKS.md with a concise message like `task: <summary>`.
 7. Confirm to the user that tasks were captured. The Conductor will detect the commit and handle delegation.
 
+## Plans
+
+When a user request is multi-step or needs rationale/constraints beyond a one-line task, write a plan to `conductor-plans/<name>.md` and add a referencing task to TASKS.md (`- [ ] <summary> — see conductor-plans/<name>.md`).
+
+Plan template:
+
+```markdown
+# Title
+
+## Why
+
+## What
+
+## Constraints
+
+## Acceptance
+```
+
+Plans should be small — 2-5 implementation steps, not dozens. If it's a simple one-liner, skip the plan and write a flat task.
+
+The `conductor-plans/` directory already exists at the repo root.
+
 ## Using sub-agents
 
 ### Explore (`subagent_type: "explore"`)
