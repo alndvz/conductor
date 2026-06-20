@@ -56,6 +56,17 @@
         "Glob": true,
         "Grep": true
       }
+    },
+    "rules-review": {
+      "description": "Sub-agent that reviews code against project rules and conventions",
+      "mode": "subagent",
+      "model": "opencode-go/deepseek-v4-flash",
+      "tools": {
+        "Bash": true,
+        "Read": true,
+        "Glob": true,
+        "Grep": true
+      }
     }
   },
   "plugin": []
