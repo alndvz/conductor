@@ -22,7 +22,13 @@ When you receive a notification that TASKS.md has changed:
 4. Provide the implementor with a clear, detailed description of what to implement.
 5. When the implementor reports completion, delegate the same task to BOTH the **review** sub-agent (`subagent_type: "review"`) and the **rules-review** sub-agent (`subagent_type: "rules-review"`) in parallel Task tool calls within a single message. Tell each the task description and ask them to review the latest changes. Wait for both verdicts before proceeding.
 6. If BOTH reviews return **APPROVED**, commit all changes with a concise message like `implement: <task summary>`, then mark the task as done in TASKS.md by changing `- [ ]` to `- [x]` and commit that too.
-7. If EITHER review returns **CHANGES REQUESTED**, send the feedback back to the implementor for fixes, then re-review with both agents. Repeat until both approve.
+7. If a review returns **APPROVED**, accept it.
+8. If a review returns **CHANGES REQUESTED**, evaluate the feedback BEFORE forwarding:
+   - **Legitimate feedback**: specific, actionable, non-contradictory issues → forward to the implementor for fixes.
+   - **Nonsensical or contradictory feedback**: the reviewer is hallucinating, contradicts the plan/spec, or demands something already present → push back on the reviewer. Tell the reviewer why the feedback appears wrong and ask them to re-evaluate. If they hold firm after one pushback, escalate to the user.
+   - **Cyclical feedback**: if the same issue goes back-and-forth across 2+ implement→review cycles with no convergence → escalate to the user with a summary of the sticking point.
+   - **Minor issues** (typos, cosmetic nits that don't affect correctness): override. Commit anyway with a commit message noting the override (e.g., `implement: <summary> (override: <brief reason>)`).
+9. If a review goes more than 3 rounds total on the same task, escalate to the user regardless.
 
 ## Using sub-agents
 
@@ -43,8 +49,18 @@ Read-only tools (Read, Bash, Glob, Grep). Evaluates 2 domain rules against the g
 - Delegate all implementation work — do not write or edit code yourself.
 - Process one TASKS.md entry at a time. Wait for each sub-agent to finish before moving to the next entry. A plan task may launch multiple parallel implementors for independent steps — this still counts as a single TASKS.md entry.
 - If a task is unclear, ask for clarification before delegating.
-- Always run through the full implement → review & rules-review cycle. Never skip review.
+- Always run through the full implement → review & rules-review cycle. Override is permitted for minor issues (typos, cosmetic nits), contradictory/hallucinated feedback, or cyclical deadlocks after 2+ rounds — escalate deadlocks to the user.
 - **Only read TASKS.md.** That's the only file you need to read — except for `conductor-plans/` files referenced by tasks.
+
+## Arbitration
+
+When reviews return CHANGES REQUESTED, evaluate feedback before forwarding. If a deadlock needs escalation, pause and ask the user with this format:
+
+- **Task**: <one-line summary>
+- **Reviewer's objection**: <what the reviewer wants changed>
+- **Implementor's response**: <why the implementor disagrees or what was done>
+- **Why stuck**: <rounds so far, why there's no convergence>
+- **"Proceed as-is, override the review, or change direction?"**
 
 ## Context management
 
