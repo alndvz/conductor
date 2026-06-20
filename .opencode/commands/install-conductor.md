@@ -24,9 +24,10 @@ Read these files from the **current** (source) repository before copying:
 3. `.opencode/agents/implementor.md` — Implementor agent definition
 4. `.opencode/agents/review.md` — Reviewer agent definition
 5. `.opencode/agents/feature.md` — Feature agent definition
-6. `.opencode/opencode.json` — source config (contains the `agent` section to
+6. `.opencode/agents/rules-review.md` — Rules-review agent definition
+7. `.opencode/opencode.json` — source config (contains the `agent` section to
    merge)
-7. `conductor.sh` — launcher script
+8. `conductor.sh` — launcher script
 
 ## Step 1 — Validate and create target directories
 
@@ -51,13 +52,14 @@ Copy `conductor-plugin.ts` from the source repo into
 
 ## Step 3 — Copy agent definitions
 
-Copy these four files verbatim (no modifications needed) from the source's
+Copy these five files verbatim (no modifications needed) from the source's
 `.opencode/agents/` into `$ARGUMENTS/.opencode/agents/`:
 
 - `conductor.md`
 - `implementor.md`
 - `review.md`
 - `feature.md`
+- `rules-review.md`
 
 ## Step 4 — Merge the config
 
@@ -67,7 +69,8 @@ Check whether `$ARGUMENTS/.opencode/opencode.json` exists:
 
 1. Read the target config file.
 2. Merge the `agent` section from the source config into it. For each agent key
-   in the source (`conductor`, `implementor`, `review`, `feature`):
+   in the source (`conductor`, `implementor`, `review`, `feature`,
+   `rules-review`):
    - If the target already has that agent key, **skip it** (do not overwrite).
    - If the target does not have that agent key, add it.
 3. Write the merged config back — preserve all existing top-level keys, the
@@ -140,11 +143,12 @@ Summarize every action taken. Use a table for clarity:
 | ----------------------------- | ------------------------- |
 | Created target directories    | created / already-existed |
 | Copied conductor-plugin.ts    | done                     |
-| Copied agent definitions (4)  | done                     |
+| Copied agent definitions (5)  | done                     |
 | Merged config: conductor      | added / skipped          |
 | Merged config: implementor    | added / skipped          |
 | Merged config: review         | added / skipped          |
 | Merged config: feature        | added / skipped          |
+| Merged config: rules-review   | added / skipped          |
 | Set default_agent: conductor  | set / already-set / kept-existing: <other> |
 | Scaffolded TASKS.md           | created / already-existed |
 | Copied conductor.sh + chmod   | done                     |
