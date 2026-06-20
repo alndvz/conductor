@@ -20,3 +20,4 @@
 - [x] Add arbitration logic to `.opencode/agents/conductor.md` — see conductor-plans/conductor-arbitration.md
 - [x] Verify the conductor arbitration implementation against the plan: check that step 7 is replaced with arbitration-aware branches (legitimate/nonsensical/cyclical/minor), the "never skip review" rule is qualified, and the `## Arbitration` section exists with escalation format. Report any gaps.
 - [x] Update `.opencode/commands/install-conductor.md` to include the rules-review agent: add `rules-review.md` to the agent definitions copied in step 3 (making it 5 agents, not 4), add `rules-review` to the agent keys merged in step 4, and add a `rules-review` row to the report table in step 8. Update any counts or language that says "four" to "five."
+- [ ] Build synthwave showcase page — see conductor-plans/synthwave-showcase.md
