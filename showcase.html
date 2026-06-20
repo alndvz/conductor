@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conductor Agent — Autonomous Multi-Agent Code Orchestration</title>
+<style>
+/* ============================================================
+   CSS VARIABLES & RESET
+   ============================================================ */
+:root {
+  --bg-deep: #0a0a1a;
+  --bg-card: rgba(255,255,255,0.04);
+  --bg-card-hover: rgba(255,255,255,0.07);
+  --cyan: #00ffff;
+  --magenta: #ff00ff;
+  --hotpink: #ff6b9d;
+  --purple: #b44dff;
+  --white: #e0e0f0;
+  --text: #b0b0cc;
+  --border: rgba(255,255,255,0.08);
+  --glass-bg: rgba(10,10,26,0.75);
+  --glass-border: rgba(0,255,255,0.12);
+  --font-mono: 'Courier New', Courier, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --sun-size: 300px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+}
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-deep);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+  position: relative;
+  min-height: 100vh;
+}
+
+/* ============================================================
+   CRT SCANLINE OVERLAY (CSS-ONLY)
+   ============================================================ */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0,0,0,0.08) 0px,
+    rgba(0,0,0,0.08) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.5;
+}
+
+/* ============================================================
+   PERSPECTIVE GRID FLOOR (CSS-ONLY)
+   ============================================================ */
+.perspective-grid {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 45vh;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  perspective: 200px;
+  perspective-origin: 50% 100%;
+}
+.perspective-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, var(--cyan) 1px, transparent 1px),
+    linear-gradient(0deg, var(--cyan) 1px, transparent 1px);
+  background-size: 40px 40px;
+  transform: rotateX(60deg);
+  transform-origin: 50% 100%;
+  opacity: 0.06;
+  mask-image: linear-gradient(to top, rgba(0,0,0,0.15) 0%, transparent 80%);
+  -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,0.15) 0%, transparent 80%);
+}
+
+/* ============================================================
+   STARFIELD PARTICLES (CANVAS)
+   ============================================================ */
+#starfield {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+}
+
+/* ============================================================
+   PAGE CONTAINER
+   ============================================================ */
+.page {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* ============================================================
+   TYPOGRAPHY
+   ============================================================ */
+h1, h2, h3, h4 {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--white);
+}
+h1 {
+  font-size: clamp(2.5rem, 8vw, 6rem);
+  text-shadow:
+    0 0 7px var(--cyan),
+    0 0 20px var(--cyan),
+    0 0 40px var(--cyan),
+    0 0 80px var(--magenta);
+  line-height: 1.1;
+}
+h2 {
+  font-size: clamp(1.6rem, 4vw, 2.5rem);
+  text-shadow: 0 0 10px var(--magenta), 0 0 30px var(--purple);
+  margin-bottom: 1rem;
+  position: relative;
+  display: inline-block;
+}
+h2::after {
+  content: '';
+  position: absolute;
+  bottom: -6px; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--purple));
+  border-radius: 1px;
+  box-shadow: 0 0 8px var(--cyan);
+}
+h3 {
+  font-size: 1.3rem;
+  text-shadow: 0 0 6px var(--cyan);
+  color: var(--cyan);
+}
+h4 {
+  font-size: 1.05rem;
+  color: var(--hotpink);
+  text-shadow: 0 0 5px var(--hotpink);
+}
+code, .mono {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: rgba(255,255,255,0.06);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* ============================================================
+   GLASS CARDS
+   ============================================================ */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+}
+.glass-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0 25px rgba(0,255,255,0.1), 0 0 50px rgba(180,77,255,0.06);
+  border-color: rgba(0,255,255,0.25);
+}
+
+/* ============================================================
+   SECTIONS
+   ============================================================ */
+section {
+  padding: 4rem 0;
+  position: relative;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+/* ============================================================
+   SCROLL REVEAL
+   ============================================================ */
+.reveal {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  padding: 2rem 1rem;
+}
+.hero .sun-container {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 0;
+  width: 100%;
+  max-width: 800px;
+  height: 340px;
+  pointer-events: none;
+}
+.hero .synthwave-sun {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--sun-size);
+  height: calc(var(--sun-size) / 2);
+  background: radial-gradient(ellipse at 50% 100%,
+    #ff6b9d 0%, #ff00ff 30%, #b44dff 60%, #0a0a1a 85%
+  );
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  box-shadow: 0 0 40px rgba(255,0,255,0.4), 0 0 120px rgba(180,77,255,0.3);
+}
+.hero .sun-slices {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--sun-size);
+}
+.hero .sun-slice {
+  height: 4px;
+  background: var(--cyan);
+  margin-bottom: 4px;
+  box-shadow: 0 0 6px var(--cyan);
+  opacity: 0.6;
+}
+.hero .sun-slice:nth-child(1) { width: 30%; margin-left: 35%; margin-bottom: 8px; }
+.hero .sun-slice:nth-child(2) { width: 50%; margin-left: 25%; }
+.hero .sun-slice:nth-child(3) { width: 70%; margin-left: 15%; }
+.hero .sun-slice:nth-child(4) { width: 85%; margin-left: 7.5%; }
+.hero .sun-slice:nth-child(5) { width: 95%; margin-left: 2.5%; }
+.hero .sun-slice:nth-child(6) { width: 100%; }
+.hero .sun-slice:nth-child(7) { width: 100%; }
+.hero .sun-slice:nth-child(8) { width: 100%; }
+.hero .sun-slice:nth-child(9) { width: 100%; }
+.hero .sun-slice:nth-child(10) { width: 100%; }
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  padding-bottom: 2rem;
+}
+.hero-content .tagline {
+  font-size: clamp(1rem, 2.5vw, 1.4rem);
+  color: var(--hotpink);
+  margin-top: 0.8rem;
+  text-shadow: 0 0 10px var(--hotpink), 0 0 30px var(--magenta);
+  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+}
+
+.scroll-indicator {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.7;
+}
+.scroll-indicator span {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--cyan);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.scroll-chevron {
+  width: 20px; height: 20px;
+  border-right: 2px solid var(--cyan);
+  border-bottom: 2px solid var(--cyan);
+  transform: rotate(45deg);
+  animation: scrollBounce 1.6s ease-in-out infinite;
+  box-shadow: 0 0 6px var(--cyan);
+}
+@keyframes scrollBounce {
+  0%, 100% { opacity: 0.3; transform: rotate(45deg) translate(0,0); }
+  50% { opacity: 1; transform: rotate(45deg) translate(-4px,-4px); }
+}
+
+/* ============================================================
+   WHAT IS THIS SECTION
+   ============================================================ */
+.elevator-pitch {
+  max-width: 750px;
+  margin: 0 auto;
+  text-align: center;
+  font-size: 1.15rem;
+  line-height: 1.9;
+}
+.elevator-pitch strong {
+  color: var(--cyan);
+  text-shadow: 0 0 8px var(--cyan);
+}
+
+/* ============================================================
+   AGENT HIERARCHY
+   ============================================================ */
+.agent-flow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 2rem 0;
+}
+.flow-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.6rem;
+}
+.flow-box {
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--white);
+  text-shadow: 0 0 5px var(--white);
+  text-align: center;
+  min-width: 70px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.flow-box.conductor-box {
+  border-color: var(--cyan);
+  box-shadow: 0 0 15px rgba(0,255,255,0.3);
+  font-size: 0.95rem;
+  padding: 0.7rem 1.4rem;
+}
+.flow-box.feature-box { border-color: var(--purple); box-shadow: 0 0 10px rgba(180,77,255,0.2); }
+.flow-box.impl-box { border-color: var(--hotpink); box-shadow: 0 0 10px rgba(255,107,157,0.2); }
+.flow-box.review-box { border-color: var(--magenta); box-shadow: 0 0 10px rgba(255,0,255,0.2); }
+.flow-box.rules-box { border-color: var(--cyan); box-shadow: 0 0 10px rgba(0,255,255,0.15); }
+.flow-box.commit-box { border-color: var(--hotpink); box-shadow: 0 0 10px rgba(255,107,157,0.2); }
+
+.flow-arrow {
+  color: var(--cyan);
+  font-size: 1.2rem;
+  text-shadow: 0 0 6px var(--cyan);
+}
+.flow-arrow-down {
+  color: var(--cyan);
+  font-size: 1.5rem;
+  text-shadow: 0 0 6px var(--cyan);
+  text-align: center;
+}
+.parallel-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.parallel-bracket {
+  color: var(--magenta);
+  font-size: 1.5rem;
+  text-shadow: 0 0 6px var(--magenta);
+}
+
+/* Agent detail cards */
+.agent-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.2rem;
+  margin-top: 2.5rem;
+}
+.agent-card {
+  border-left: 3px solid var(--cyan);
+}
+.agent-card.feature { border-left-color: var(--purple); }
+.agent-card.impl { border-left-color: var(--hotpink); }
+.agent-card.review { border-left-color: var(--magenta); }
+.agent-card.rules { border-left-color: var(--cyan); }
+.agent-card h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.4rem;
+}
+.agent-card .agent-role {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--hotpink);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+}
+.agent-card p {
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.agent-card .agent-model {
+  font-size: 0.78rem;
+  color: var(--text);
+  margin-top: 0.4rem;
+  font-family: var(--font-mono);
+  opacity: 0.7;
+}
+
+/* ============================================================
+   HOW IT WORKS
+   ============================================================ */
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-width: 700px;
+  margin: 0 auto;
+  counter-reset: step;
+}
+.step {
+  position: relative;
+  padding: 1.2rem 1.2rem 1.2rem 4.5rem;
+  border-left: 2px solid rgba(0,255,255,0.15);
+  margin-left: 1.8rem;
+  counter-increment: step;
+}
+.step:last-child {
+  border-left: 2px solid transparent;
+}
+.step::before {
+  content: counter(step);
+  position: absolute;
+  left: -1.6rem;
+  top: 1rem;
+  width: 2.6rem;
+  height: 2.6rem;
+  background: var(--glass-bg);
+  border: 2px solid var(--cyan);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--cyan);
+  text-shadow: 0 0 8px var(--cyan);
+  box-shadow: 0 0 12px rgba(0,255,255,0.25);
+}
+.step h4 {
+  margin-bottom: 0.3rem;
+}
+.step p {
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+/* ============================================================
+   KEY FEATURES CARD GRID
+   ============================================================ */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.2rem;
+}
+.feature-card {
+  text-align: left;
+  border-top: 2px solid var(--cyan);
+}
+.feature-card:nth-child(2) { border-top-color: var(--magenta); }
+.feature-card:nth-child(3) { border-top-color: var(--purple); }
+.feature-card:nth-child(4) { border-top-color: var(--hotpink); }
+.feature-card:nth-child(5) { border-top-color: var(--cyan); }
+.feature-card:nth-child(6) { border-top-color: var(--magenta); }
+.feature-card:nth-child(7) { border-top-color: var(--purple); }
+.feature-card:nth-child(8) { border-top-color: var(--hotpink); }
+.feature-card h4 {
+  margin-bottom: 0.4rem;
+}
+.feature-card p {
+  font-size: 0.88rem;
+}
+
+/* ============================================================
+   ARCHITECTURE DEEP DIVE
+   ============================================================ */
+.arch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.2rem;
+}
+.arch-card {
+  border-bottom: 2px solid var(--purple);
+}
+.arch-card:nth-child(2) { border-bottom-color: var(--cyan); }
+.arch-card:nth-child(3) { border-bottom-color: var(--magenta); }
+.arch-card h4 {
+  margin-bottom: 0.5rem;
+}
+.arch-card ul {
+  list-style: none;
+  padding-left: 0;
+}
+.arch-card li {
+  font-size: 0.88rem;
+  padding: 0.2rem 0;
+  padding-left: 1.2rem;
+  position: relative;
+}
+.arch-card li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  color: var(--cyan);
+}
+
+/* ============================================================
+   REPO STATS
+   ============================================================ */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+}
+.stat-card {
+  text-align: center;
+  padding: 2rem 1rem;
+  border: 1px solid rgba(0,255,255,0.15);
+}
+.stat-card .stat-number {
+  font-family: var(--font-mono);
+  font-size: 2.8rem;
+  font-weight: 800;
+  color: var(--cyan);
+  text-shadow: 0 0 15px var(--cyan), 0 0 40px var(--magenta);
+  line-height: 1;
+}
+.stat-card .stat-label {
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text);
+}
+
+/* ============================================================
+   TECH STACK
+   ============================================================ */
+.tech-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.7rem;
+}
+.tech-badge {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(6px);
+  color: var(--white);
+  white-space: nowrap;
+  text-shadow: 0 0 6px rgba(255,255,255,0.3);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.tech-badge:hover {
+  border-color: var(--cyan);
+  box-shadow: 0 0 15px rgba(0,255,255,0.2);
+}
+
+/* ============================================================
+   FILE MAP
+   ============================================================ */
+.file-tree {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  max-width: 700px;
+  margin: 0 auto;
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 1.8rem 2rem;
+}
+.file-tree .tree-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.22rem 0;
+  line-height: 1.6;
+}
+.file-tree .tree-line.dir {
+  color: var(--cyan);
+}
+.file-tree .tree-line.file {
+  color: var(--text);
+  padding-left: 1.5rem;
+}
+.file-tree .tree-line .file-desc {
+  color: var(--text);
+  opacity: 0.5;
+  font-size: 0.78rem;
+  margin-left: 0.5rem;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+footer {
+  text-align: center;
+  padding: 4rem 1rem 3rem;
+  position: relative;
+  border-top: 1px solid rgba(0,255,255,0.08);
+}
+footer .footer-tagline {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--hotpink);
+  text-shadow: 0 0 10px var(--hotpink);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+footer a {
+  color: var(--cyan);
+  text-decoration: none;
+  text-shadow: 0 0 8px var(--cyan);
+  transition: color 0.3s;
+}
+footer a:hover {
+  color: var(--hotpink);
+  text-shadow: 0 0 12px var(--hotpink);
+}
+footer .footer-sun {
+  margin: 2rem auto 0;
+  width: 60px;
+  height: 30px;
+  background: radial-gradient(ellipse at 50% 100%, #ff6b9d 0%, #ff00ff 40%, #0a0a1a 80%);
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  box-shadow: 0 0 15px rgba(255,0,255,0.3);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 768px) {
+  section { padding: 2.5rem 0; }
+  .page { padding: 0 1rem; }
+  .agent-cards { grid-template-columns: 1fr; }
+  .feature-grid { grid-template-columns: 1fr; }
+  .arch-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .flow-box { font-size: 0.7rem; padding: 0.4rem 0.6rem; }
+  .flow-row { gap: 0.3rem; }
+  .file-tree { padding: 1rem 1.2rem; font-size: 0.75rem; }
+  .step { padding-left: 3.5rem; margin-left: 1.2rem; }
+  .step::before { width: 2rem; height: 2rem; font-size: 0.8rem; left: -1.3rem; top: 1.1rem; }
+}
+
+@media (max-width: 480px) {
+  .hero .synthwave-sun {
+    width: 200px;
+    height: 100px;
+  }
+  .hero .sun-container { height: 220px; }
+  .agent-cards { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .stat-card .stat-number { font-size: 2rem; }
+  .tech-badge { font-size: 0.72rem; padding: 0.35rem 0.8rem; }
+  .elevator-pitch { font-size: 1rem; }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
+  .reveal { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Perspective Grid Floor -->
+<div class="perspective-grid" aria-hidden="true"></div>
+
+<!-- Starfield Canvas -->
+<canvas id="starfield" aria-hidden="true"></canvas>
+
+<div class="page">
+
+<!-- ============================================================
+     SECTION 1: HERO
+     ============================================================ -->
+<header class="hero" id="hero">
+  <div class="sun-container" aria-hidden="true">
+    <div class="synthwave-sun"></div>
+    <div class="sun-slices">
+      <div class="sun-slice"></div><div class="sun-slice"></div>
+      <div class="sun-slice"></div><div class="sun-slice"></div>
+      <div class="sun-slice"></div><div class="sun-slice"></div>
+      <div class="sun-slice"></div><div class="sun-slice"></div>
+      <div class="sun-slice"></div><div class="sun-slice"></div>
+    </div>
+  </div>
+  <div class="hero-content reveal">
+    <h1>CONDUCTOR<br>AGENT</h1>
+    <p class="tagline">Autonomous multi-agent code orchestration</p>
+  </div>
+  <div class="scroll-indicator" aria-hidden="true">
+    <span>Scroll</span>
+    <div class="scroll-chevron"></div>
+  </div>
+</header>
+
+<!-- ============================================================
+     SECTION 2: WHAT IS THIS?
+     ============================================================ -->
+<section id="what" aria-labelledby="what-heading">
+  <div class="section-header reveal">
+    <h2 id="what-heading">What Is This?</h2>
+  </div>
+  <div class="elevator-pitch reveal">
+    <p>
+      <strong>Conductor Agent</strong> is an OpenCode plugin that watches <code>TASKS.md</code>,
+      delegates to specialized AI sub-agents, reviews their output, and commits —
+      all without human intervention.<br><br>
+      <strong>Think:</strong> AI project manager + coding team + QA, working asynchronously
+      around the clock. The Conductor orchestrates, the Implementor builds, the Reviewers
+      inspect — and the Conductor arbitrates their feedback intelligently before committing.
+    </p>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 3: AGENT HIERARCHY
+     ============================================================ -->
+<section id="hierarchy" aria-labelledby="hierarchy-heading">
+  <div class="section-header reveal">
+    <h2 id="hierarchy-heading">Agent Hierarchy</h2>
+  </div>
+
+  <!-- Flow diagram -->
+  <div class="agent-flow reveal" aria-label="Agent data flow diagram">
+    <div class="flow-row">
+      <span class="flow-box">User</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box feature-box">Feature</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box">TASKS.md</span>
+    </div>
+    <div class="flow-arrow-down">↓</div>
+    <div class="flow-row">
+      <span class="flow-box">Plugin detects change</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box conductor-box">Conductor</span>
+    </div>
+    <div class="flow-arrow-down">↓</div>
+    <div class="flow-row">
+      <span class="flow-box conductor-box">Conductor</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box impl-box">Implementor</span>
+    </div>
+    <div class="flow-arrow-down">↓</div>
+    <div class="flow-row">
+      <span class="parallel-bracket">[</span>
+      <span class="flow-box review-box">Review</span>
+      <span class="flow-box rules-box">Rules Review</span>
+      <span class="parallel-bracket">]</span>
+    </div>
+    <div class="flow-arrow-down">↓</div>
+    <div class="flow-row">
+      <span class="flow-box conductor-box">Conductor Arbitration</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box commit-box">Commit</span>
+    </div>
+  </div>
+
+  <!-- Agent detail cards -->
+  <div class="agent-cards reveal">
+    <div class="glass-card agent-card">
+      <h3>Conductor</h3>
+      <div class="agent-role">primary agent</div>
+      <p>Orchestrator, arbiter, committer. Reads TASKS.md, delegates to sub-agents, evaluates review feedback with intelligent arbitration, and commits approved changes.</p>
+      <div class="agent-model">Model: deepseek-v4-pro<br>Only agent with <code>permission: allow</code></div>
+    </div>
+
+    <div class="glass-card agent-card feature">
+      <h3>Feature</h3>
+      <div class="agent-role">primary agent</div>
+      <p>Conversational-first planner. Discusses requirements with the user, asks clarifying questions, writes TASKS.md tasks and conductor-plans. Can delegate to the explore sub-agent for codebase exploration.</p>
+      <div class="agent-model">Model: — (default)</div>
+    </div>
+
+    <div class="glass-card agent-card impl">
+      <h3>Implementor</h3>
+      <div class="agent-role">sub-agent</div>
+      <p>Writes code. Has read, write, edit, bash, glob, and grep tools. Stateless — each invocation runs in a fresh context. Reports completion to the Conductor.</p>
+      <div class="agent-model">Model: — (default)</div>
+    </div>
+
+    <div class="glass-card agent-card review">
+      <h3>Review</h3>
+      <div class="agent-role">sub-agent</div>
+      <p>General code review. Read-only tools (Read, Bash, Glob, Grep). Returns APPROVED or CHANGES REQUESTED with specific, actionable feedback.</p>
+      <div class="agent-model">Model: deepseek-v4-pro</div>
+    </div>
+
+    <div class="glass-card agent-card rules">
+      <h3>Rules Review</h3>
+      <div class="agent-role">sub-agent</div>
+      <p>Domain rule checker. Evaluates 2 rules (simplicity, minimal-diff) against git diff. Reports PASS/FAIL per rule. Read-only tools.</p>
+      <div class="agent-model">Model: deepseek-v4-flash</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 4: HOW IT WORKS
+     ============================================================ -->
+<section id="how" aria-labelledby="how-heading">
+  <div class="section-header reveal">
+    <h2 id="how-heading">How It Works</h2>
+  </div>
+  <div class="steps">
+    <div class="step reveal">
+      <h4>User writes a feature request or task</h4>
+      <p>The process starts with a human request — a feature idea, a bug report, or any task that needs code changes.</p>
+    </div>
+    <div class="step reveal">
+      <h4>Feature agent discusses and captures</h4>
+      <p>Feature agent converses with the user, asks clarifying questions, and captures the result into <code>TASKS.md</code> and/or <code>conductor-plans/</code>.</p>
+    </div>
+    <div class="step reveal">
+      <h4>Plugin detects the change</h4>
+      <p>The plugin polls the git hash every 5 seconds. When <code>TASKS.md</code> changes, it computes the diff and notifies the Conductor.</p>
+    </div>
+    <div class="step reveal">
+      <h4>Conductor receives the notification</h4>
+      <p>The plugin sends the diff to all active Conductor sessions. The Conductor reads the updated tasks and begins orchestrating.</p>
+    </div>
+    <div class="step reveal">
+      <h4>Conductor delegates to Implementor(s)</h4>
+      <p>Each incomplete task is delegated to an Implementor sub-agent with clear instructions and acceptance criteria.</p>
+    </div>
+    <div class="step reveal">
+      <h4>Plan-based tasks: parallel fan-out</h4>
+      <p>For <code>conductor-plans/</code> tasks, independent steps run in parallel (multiple Implementors at once), while dependent steps run sequentially.</p>
+    </div>
+    <div class="step reveal">
+      <h4>Implementor writes code and reports back</h4>
+      <p>The Implementor uses its tools to write, edit, and verify the changes, then reports completion to the Conductor.</p>
+    </div>
+    <div class="step reveal">
+      <h4>Dual-layer review launched</h4>
+      <p>The Conductor launches both Review (general code review) and Rules Review (domain rule check) in parallel against the combined diff.</p>
+    </div>
+    <div class="step reveal">
+      <h4>Conductor arbitrates feedback</h4>
+      <p>If either review returns CHANGES REQUESTED, the Conductor evaluates the feedback: <strong>legitimate</strong> → send back to Implementor; <strong>nonsensical</strong> → push back on reviewer; <strong>cyclical</strong> → escalate to user; <strong>minor</strong> → override and commit.</p>
+    </div>
+    <div class="step reveal">
+      <h4>Conductor commits and marks as done</h4>
+      <p>With all reviews passed (or overridden), the Conductor commits with a descriptive message and marks the task <code>[x]</code> in TASKS.md.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 5: KEY FEATURES
+     ============================================================ -->
+<section id="features" aria-labelledby="features-heading">
+  <div class="section-header reveal">
+    <h2 id="features-heading">Key Features</h2>
+  </div>
+  <div class="feature-grid">
+    <div class="glass-card feature-card reveal">
+      <h4>Plugin-Based Orchestration</h4>
+      <p>Guard-based activation (CONDUCTOR=1), session management, message queueing with backpressure, defensive idle detection, and self-contained cleanup.</p>
+    </div>
+    <div class="glass-card feature-card reveal">
+      <h4>Plan-Driven Parallelism</h4>
+      <p>Multi-step plans fan out independent steps to parallel Implementors, then run both reviews simultaneously on the combined diff.</p>
+    </div>
+    <div class="glass-card feature-card reveal">
+      <h4>Dual-Layer Review</h4>
+      <p>General code review and rules-based review run concurrently — two specialized agents examining the same diff from different angles.</p>
+    </div>
+    <div class="glass-card feature-card reveal">
+      <h4>Intelligent Arbitration</h4>
+      <p>The Conductor doesn't blindly follow reviewers. It evaluates feedback, pushes back when appropriate, and escalates only when truly needed.</p>
+    </div>
+    <div class="glass-card feature-card reveal">
+      <h4>Self-Installing</h4>
+      <p><code>/install-conductor</code> bootstraps the entire Conductor workflow into any target repo — agents, plugins, config, and scaffolding.</p>
+    </div>
+    <div class="glass-card feature-card reveal">
+      <h4>Containerized Dev</h4>
+      <p><code>dev.sh</code> builds and runs a Fedora Podman container with the full development environment, so you can hack on the Conductor itself.</p>
+    </div>
+    <div class="glass-card feature-card reveal">
+      <h4>Architecture Documentation</h4>
+      <p><code>/detect-arch</code> command auto-generates architecture docs analyzing the codebase structure, patterns, and relationships.</p>
+    </div>
+    <div class="glass-card feature-card reveal">
+      <h4>File Change Detection</h4>
+      <p>Git hash polling with diff computation at 5-second intervals — robust against clock skew and designed for the event-driven agent loop.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 6: ARCHITECTURE DEEP DIVE
+     ============================================================ -->
+<section id="architecture" aria-labelledby="arch-heading">
+  <div class="section-header reveal">
+    <h2 id="arch-heading">Architecture Deep Dive</h2>
+  </div>
+  <div class="arch-grid">
+    <div class="glass-card arch-card reveal">
+      <h4>Plugin Design</h4>
+      <ul>
+        <li>Activation gate: only runs when <code>CONDUCTOR=1</code> env var is set</li>
+        <li>Polling loop: git hash every 5s, diffs on change, notifies sessions</li>
+        <li>Session tracking: <code>session.created</code> / <code>session.deleted</code> events</li>
+        <li>Message queueing with backpressure: queues outbound messages when sessions are busy, drains on idle</li>
+        <li>Defensive idle detection: avoids stale session states</li>
+        <li>Fire-and-forget messaging: non-blocking notification dispatch</li>
+        <li>Self-contained cleanup: no leaked timers or listeners</li>
+      </ul>
+    </div>
+    <div class="glass-card arch-card reveal">
+      <h4>Plan Execution Model</h4>
+      <ul>
+        <li>Plans in <code>conductor-plans/</code> have a <code>## What</code> section with numbered steps</li>
+        <li>Independent steps → launched as parallel Implementor sub-agents in a single message</li>
+        <li>Dependent steps → run sequentially, waiting for prior output</li>
+        <li>After all Implementors finish → both reviewers run once on the combined diff</li>
+        <li>Both reviews must pass before committing</li>
+      </ul>
+    </div>
+    <div class="glass-card arch-card reveal">
+      <h4>Arbitration Logic</h4>
+      <ul>
+        <li><strong>Legitimate</strong>: specific, actionable, non-contradictory → forward to Implementor for fixes</li>
+        <li><strong>Nonsensical</strong>: misunderstands task, contradicts spec, misapplies rule → push back on reviewer</li>
+        <li><strong>Cyclical</strong>: same issue returns after 2+ rounds → escalate to user</li>
+        <li><strong>Minor</strong>: cosmetic, subjective, outside scope → override and commit</li>
+        <li>Override recorded in commit message: <code>(review overridden: reason)</code></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 7: REPO STATS
+     ============================================================ -->
+<section id="stats" aria-labelledby="stats-heading">
+  <div class="section-header reveal">
+    <h2 id="stats-heading">Repo Stats</h2>
+  </div>
+  <div class="stats-grid">
+    <div class="glass-card stat-card reveal">
+      <div class="stat-number" data-target="25">0</div>
+      <div class="stat-label">Tracked Files</div>
+    </div>
+    <div class="glass-card stat-card reveal">
+      <div class="stat-number" data-target="61">0</div>
+      <div class="stat-label">Commits</div>
+    </div>
+    <div class="glass-card stat-card reveal">
+      <div class="stat-number" data-target="5">0</div>
+      <div class="stat-label">AI Agents</div>
+    </div>
+    <div class="glass-card stat-card reveal">
+      <div class="stat-number" data-target="2">0</div>
+      <div class="stat-label">Custom Commands</div>
+    </div>
+    <div class="glass-card stat-card reveal">
+      <div class="stat-number" data-target="22">0</div>
+      <div class="stat-label">Tasks Completed</div>
+    </div>
+    <div class="glass-card stat-card reveal">
+      <div class="stat-number" data-target="2">0</div>
+      <div class="stat-label">Plans Executed</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 8: TECH STACK
+     ============================================================ -->
+<section id="tech" aria-labelledby="tech-heading">
+  <div class="section-header reveal">
+    <h2 id="tech-heading">Tech Stack</h2>
+  </div>
+  <div class="tech-badges reveal">
+    <span class="tech-badge">TypeScript 6.0.3</span>
+    <span class="tech-badge">OpenCode Plugin SDK 1.17.7</span>
+    <span class="tech-badge">Bash</span>
+    <span class="tech-badge">Podman</span>
+    <span class="tech-badge">Git</span>
+    <span class="tech-badge">deepseek-v4-pro</span>
+    <span class="tech-badge">deepseek-v4-flash</span>
+  </div>
+</section>
+
+<!-- ============================================================
+     SECTION 9: FILE MAP
+     ============================================================ -->
+<section id="files" aria-labelledby="files-heading">
+  <div class="section-header reveal">
+    <h2 id="files-heading">File Map</h2>
+  </div>
+  <div class="file-tree reveal">
+    <div class="tree-line dir">conductor-plugin.ts <span class="file-desc">— main plugin: polling, sessions, queueing</span></div>
+    <div class="tree-line file">conductor.sh <span class="file-desc">— launcher script</span></div>
+    <div class="tree-line file">dev.sh <span class="file-desc">— containerized dev environment</span></div>
+    <div class="tree-line file">logs.sh <span class="file-desc">— log viewer</span></div>
+    <div class="tree-line file">TASKS.md <span class="file-desc">— task list, polled by plugin</span></div>
+    <div class="tree-line file">AGENTS.md <span class="file-desc">— repo instructions for AI agents</span></div>
+    <div class="tree-line dir">.opencode/agents/</div>
+    <div class="tree-line file">├── conductor.md <span class="file-desc">— conductor agent definition (primary)</span></div>
+    <div class="tree-line file">├── feature.md <span class="file-desc">— feature agent (primary, planner)</span></div>
+    <div class="tree-line file">├── implementor.md <span class="file-desc">— implementor agent (sub-agent)</span></div>
+    <div class="tree-line file">├── review.md <span class="file-desc">— review agent (sub-agent)</span></div>
+    <div class="tree-line file">└── rules-review.md <span class="file-desc">— rules review agent (sub-agent)</span></div>
+    <div class="tree-line dir">.opencode/commands/</div>
+    <div class="tree-line file">├── install-conductor.md <span class="file-desc">— /install-conductor command</span></div>
+    <div class="tree-line file">└── detect-arch.md <span class="file-desc">— /detect-arch command</span></div>
+    <div class="tree-line file">.opencode/opencode.json <span class="file-desc">— agent + tool config</span></div>
+    <div class="tree-line dir">conductor-plans/ <span class="file-desc">— plan files for multi-step tasks</span></div>
+  </div>
+</section>
+
+</div><!-- /page -->
+
+<!-- ============================================================
+     SECTION 10: FOOTER
+     ============================================================ -->
+<footer>
+  <p class="footer-tagline reveal">BUILT WITH NEON AND CODE</p>
+  <p style="margin-top:0.8rem; font-size:0.9rem;" class="reveal">
+    <a href="https://github.com/opencode-ai/opencode" target="_blank" rel="noopener">OpenCode</a>
+    &nbsp;·&nbsp; Conductor Agent Project
+  </p>
+  <div class="footer-sun reveal" aria-hidden="true"></div>
+</footer>
+
+<!-- ============================================================
+     SCRIPTS
+     ============================================================ -->
+<script>
+(function() {
+  'use strict';
+
+  // ============================================================
+  // REDUCED MOTION CHECK
+  // ============================================================
+  var prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReducedMotion) {
+    document.querySelectorAll('.reveal').forEach(function(el) {
+      el.classList.add('visible');
+    });
+  }
+
+  // ============================================================
+  // INTERSECTION OBSERVER — SCROLL REVEAL
+  // ============================================================
+  if (!prefersReducedMotion) {
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, {
+      threshold: 0.12,
+      rootMargin: '0px 0px -30px 0px'
+    });
+
+    document.querySelectorAll('.reveal').forEach(function(el) {
+      observer.observe(el);
+    });
+  }
+
+  // ============================================================
+  // COUNT-UP ANIMATION FOR STATS
+  // ============================================================
+  function animateCountUp(el, target, duration) {
+    var start = 0;
+    var startTime = null;
+
+    function step(timestamp) {
+      if (!startTime) startTime = timestamp;
+      var progress = Math.min((timestamp - startTime) / duration, 1);
+      // Ease-out cubic
+      var eased = 1 - Math.pow(1 - progress, 3);
+      var current = Math.round(eased * target);
+      el.textContent = current;
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        el.textContent = target;
+      }
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  if (!prefersReducedMotion) {
+    var statObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          var numEl = entry.target.querySelector('.stat-number');
+          if (numEl && !numEl.dataset.animated) {
+            numEl.dataset.animated = '1';
+            var target = parseInt(numEl.getAttribute('data-target'), 10);
+            animateCountUp(numEl, target, 1800);
+          }
+          statObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.4 });
+
+    document.querySelectorAll('.stat-card').forEach(function(card) {
+      statObserver.observe(card);
+    });
+  } else {
+    // Set numbers directly if reduced motion
+    document.querySelectorAll('.stat-number').forEach(function(el) {
+      el.textContent = el.getAttribute('data-target');
+    });
+  }
+
+  // ============================================================
+  // STARFIELD / FLOATING PARTICLES (CANVAS)
+  // ============================================================
+  if (!prefersReducedMotion) {
+    var canvas = document.getElementById('starfield');
+    if (canvas) {
+      var ctx = canvas.getContext('2d');
+      var stars = [];
+      var STAR_COUNT = 80;
+
+      function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+
+      function createStars() {
+        stars = [];
+        for (var i = 0; i < STAR_COUNT; i++) {
+          stars.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            r: Math.random() * 1.6 + 0.4,
+            speed: Math.random() * 0.3 + 0.1,
+            alpha: Math.random() * 0.7 + 0.3,
+            hue: ['#00ffff', '#ff00ff', '#ff6b9d', '#b44dff'][Math.floor(Math.random() * 4)]
+          });
+        }
+      }
+
+      function drawStars() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        stars.forEach(function(s) {
+          s.y -= s.speed;
+          if (s.y < -5) {
+            s.y = canvas.height + 5;
+            s.x = Math.random() * canvas.width;
+          }
+
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fillStyle = s.hue;
+          ctx.globalAlpha = s.alpha;
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = s.hue;
+          ctx.fill();
+        });
+
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+        requestAnimationFrame(drawStars);
+      }
+
+      resizeCanvas();
+      createStars();
+      drawStars();
+
+      window.addEventListener('resize', function() {
+        resizeCanvas();
+        createStars();
+      });
+    }
+  }
+
+  // ============================================================
+  // HANDLE prefers-reduced-motion CHANGES AT RUNTIME
+  // (unlikely but correct)
+  // ============================================================
+  window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', function(e) {
+    if (e.matches) {
+      // Freeze everything visible
+      document.querySelectorAll('.reveal').forEach(function(el) {
+        el.classList.add('visible');
+      });
+      document.querySelectorAll('.stat-number').forEach(function(el) {
+        el.textContent = el.getAttribute('data-target');
+      });
+    }
+  });
+
+})();
+</script>
+
+</body>
+</html>
