@@ -7,6 +7,20 @@ copies the agent definitions, plugin, config, launcher script, and task file
 from the _source_ repository (where you are running) into the _target_
 repository.
 
+> **Note on symlinks**: In the source repo, two files under `.opencode/` are
+> symlinks that point to `/workspace/`:
+>
+> - `.opencode/agents/conductor.md -> /workspace/conductor.md`
+> - `.opencode/plugins/conductor-plugin.ts -> /workspace/conductor-plugin.ts`
+>
+> These only resolve inside the dev container (started via `./dev.sh`). When
+> running **outside** the container (e.g. directly on the host, which is
+> necessary when the target is a separate repo outside the container's mount),
+> both symlinks are broken. Always read these files from the **repo root**
+> instead:
+> - `conductor-agent/conductor.md`
+> - `conductor-agent/conductor-plugin.ts`
+
 ## Arguments
 
 `$ARGUMENTS` is the path to the target repo directory. It must be an absolute
