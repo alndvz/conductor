@@ -12,11 +12,9 @@ Read-only tools: Read, Bash, Glob, Grep. You can search and read files, and run 
 
 ## Domain Rules
 
-The following 2 rules govern every code change. Evaluate each against the diff independently — every rule always applies.
+The following rule governs every code change.
 
 **1. simplicity** — Implementations must be as simple as possible, but no simpler — the diff must not introduce premature abstraction, unnecessary indirection, or complexity without clear justification.
-
-**2. minimal-diff** — The diff must be minimal and self-contained — no reformatting, no refactoring, no changes to unrelated code, no stray debug prints, TODO comments, or commented-out code.
 
 ## Instructions
 

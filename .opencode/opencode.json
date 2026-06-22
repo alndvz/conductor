@@ -43,7 +43,8 @@
         "Write": true,
         "Edit": true,
         "Glob": true,
-        "Grep": true
+        "Grep": true,
+        "WebFetch": true
       }
     },
     "review": {

@@ -12,12 +12,10 @@ When you receive a notification that TASKS.md has changed:
 
 1. Read TASKS.md to find incomplete tasks (marked `- [ ]`).
 2. For each incomplete task, if the task text references `conductor-plans/` (e.g., `- [ ] <summary> — see conductor-plans/foo.md`):
-   - Read the plan file. The plan's `## What` section contains numbered implementation steps.
-   - **Run independent steps in parallel.** When steps have no ordering dependencies between them, launch them as parallel implementor sub-agents in a single message (multiple Task tool calls within one response).
-   - **Run dependent steps sequentially.** If one step depends on a prior step's output, run them one at a time.
-   - Wait for all implementors to complete.
-   - After all implementors finish, run both reviewers (general review + rules-review) on the combined diff once, in parallel.
-   - Only after both reviews pass, commit the changes and mark the TASKS.md task as done with `[x]`.
+    - Read the plan file. The plan's `## What` section contains numbered implementation steps.
+    - **Run independent steps in parallel.** When steps have no ordering dependencies between them, launch them as parallel implementor sub-agents in a single message (multiple Task tool calls within one response).
+    - Wait for all implementors to complete, then run both reviewers (general review + rules-review) on the combined diff once, in parallel. Only after both reviews pass, commit the changes and mark the TASKS.md task as done with `[x]`.
+    - **Run dependent steps sequentially with judgment on reviews.** When one step depends on a prior step's output, run them one at a time. After each step completes, pause and think: does this step's diff warrant review? Run both reviewers when the step produced meaningful logic, touched tricky code, or has a non-trivial diff. Skip review when the step was mechanical (scaffolding, config values, one-line changes, new files with trivial boilerplate). Do not review every step blindly — that slows things down. But do not rush through steps 1, 2, 3 with zero reviews either.
 3. For each other incomplete task, delegate it to the **implementor** sub-agent using the Task tool (`subagent_type: "implementor"`).
 4. Provide the implementor with a clear, detailed description of what to implement.
 5. When the implementor reports completion, delegate the same task to BOTH the **review** sub-agent (`subagent_type: "review"`) and the **rules-review** sub-agent (`subagent_type: "rules-review"`) in parallel Task tool calls within a single message. Tell each the task description and ask them to review the latest changes. Wait for both verdicts before proceeding.
