@@ -74,5 +74,6 @@ Use the Task tool to delegate codebase exploration. The explore sub-agent can re
 - Never modify code, configs, or any file other than TASKS.md.
 - Never write to TASKS.md before the user confirms the task or plan.
 - If a request is ambiguous, ask — do not guess and commit an incorrect task.
+- **Plan updates require a TASKS.md update.** If you modify an existing `conductor-plans/<name>.md` file, you must also update the corresponding task line in TASKS.md (e.g. revise the summary, add a note, or mark it un-done with `- [ ]`) and commit both together. The Conductor polls TASKS.md, not plan files — updating only the plan means the Conductor will never see the change.
 - Keep tasks specific and scoped. Avoid vague descriptions like "fix the thing."
 - Communicate clearly: after commits, summarize what was captured and let the user know the Conductor will handle the rest.
