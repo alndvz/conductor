@@ -26,14 +26,32 @@ That's it. The conductor launches, reads `TASKS.md`, and begins processing incom
 
 ## How it works
 
+### 1. Define tasks with the Feature agent
+
+The **feature** agent is a conversational primary agent you talk to directly. It explores your codebase, asks clarifying questions, builds a plan, and — once you confirm — writes tasks to `TASKS.md` and commits.
+
+```bash
+opencode --agent feature "I want to add dark mode support"
 ```
-  you (edit TASKS.md)
+
+The feature agent will:
+- Discuss your request, ask clarifying questions
+- Explore the codebase (delegating to an explore sub-agent)
+- Write a plan to `conductor-plans/` and a referencing task to `TASKS.md`
+- Commit — the conductor detects the new task automatically
+
+For simple one-liners the feature agent skips the plan and writes a flat checklist item directly.
+
+### 2. The Conductor executes
+
+```
+  feature agent ────── writes tasks to TASKS.md, commits
         │
         ▼
-  conductor-plugin ─── watches for git changes every 5s
+  conductor-plugin ─── watches for git changes every 5s, notifies conductor
         │
         ▼
-  conductor.md ────── reads TASKS.md, delegates tasks
+  conductor ────────── reads TASKS.md, delegates tasks
         │
         ├── implementor ── writes code
         │
