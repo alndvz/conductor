@@ -51,15 +51,6 @@ function dequeueAll(
 
 // ── Notifications ────────────────────────────────────────────────────────────
 
-const LOGO = [
-  "  ██████╗ ██████╗ ███╗   ██╗██████╗ ██╗   ██╗ ██████╗████████╗ ██████╗ ██████╗ ",
-  " ██╔════╝██╔═══██╗████╗  ██║██╔══██╗██║   ██║██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗",
-  " ██║     ██║   ██║██╔██╗ ██║██║  ██║██║   ██║██║        ██║   ██║   ██║██████╔╝",
-  " ██║     ██║   ██║██║╚██╗██║██║  ██║██║   ██║██║        ██║   ██║   ██║██╔══██╗",
-  " ╚██████╗╚██████╔╝██║ ╚████║██████╔╝╚██████╔╝╚██████╗   ██║   ╚██████╔╝██║  ██║",
-  "  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═════╝  ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝",
-]
-
 function formatFileChangeNotification(file: string, commit: string, diff: string): string {
   const codeFence = "```"
   return `File ${file} changed (commit ${commit.slice(0, 7)})\n\n${codeFence}diff\n${diff}\n${codeFence}`
@@ -244,7 +235,6 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
 
         startTick(sessionID)
 
-        await sendOrQueue(sessionID, LOGO.join("\n"), true)
       }
 
       if (event.type === "session.next.agent.switched") {
