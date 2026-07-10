@@ -6,11 +6,41 @@ image_name="conductor-agent-dev:latest"
 container_name="${CONDUCTOR_AGENT_CONTAINER_NAME:-conductor-agent-dev-env-$(date +%Y%m%d%H%M%S)-$$}"
 containerfile="$repo_root/Containerfile.dev"
 workspace_mount="/workspace"
-cache_dir="$repo_root/.podman"
-containerfile_hash_file="$cache_dir/containerfile.sha256"
-container_home="${CONDUCTOR_AGENT_CONTAINER_HOME:-$workspace_mount/.podman/home}"
+container_home="/conductor-home"
 published_ports="${CONDUCTOR_AGENT_PORTS:-}"
 container_command=()
+container_runtime=""
+home_volume="${CONDUCTOR_AGENT_HOME_VOLUME:-}"
+containerfile_hash_label="io.conductor.containerfile-hash"
+
+hash_value() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+    return
+  fi
+
+  shasum -a 256 "$1" | awk '{print $1}'
+}
+
+hash_string() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    printf '%s' "$1" | sha256sum | awk '{print $1}'
+    return
+  fi
+
+  printf '%s' "$1" | shasum -a 256 | awk '{print $1}'
+}
+
+host_port_is_busy() {
+  local port="$1"
+
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 0.2 bash -c "exec 3<>/dev/tcp/127.0.0.1/$port" >/dev/null 2>&1
+    return $?
+  fi
+
+  bash -c "exec 3<>/dev/tcp/127.0.0.1/$port" >/dev/null 2>&1
+}
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -27,38 +57,72 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-mkdir -p "$cache_dir"
+if command -v podman >/dev/null 2>&1; then
+  container_runtime="podman"
+elif command -v docker >/dev/null 2>&1; then
+  container_runtime="docker"
+else
+  echo "Neither podman nor docker is installed. Install podman or docker and try again." >&2
+  exit 1
+fi
 
-current_containerfile_hash="$(sha256sum "$containerfile" | awk '{print $1}')"
+if [ -z "$home_volume" ]; then
+  repo_hash="$(hash_string "$repo_root" | cut -c1-12)"
+  home_volume="conductor-agent-home-$repo_hash"
+fi
+
+current_containerfile_hash="$(hash_value "$containerfile")"
 previous_manifest_hash=""
 
-if [ -f "$containerfile_hash_file" ]; then
-  previous_manifest_hash="$(cat "$containerfile_hash_file")"
+if "$container_runtime" image inspect "$image_name" >/dev/null 2>&1; then
+  previous_manifest_hash="$("$container_runtime" image inspect --format "{{ index .Config.Labels \"$containerfile_hash_label\" }}" "$image_name" 2>/dev/null || true)"
 fi
 
-echo "🚀 Preparing Podman image..."
-if ! podman image exists "$image_name" >/dev/null 2>&1; then
-  podman build -t "$image_name" -f "$containerfile" "$repo_root"
+echo "🚀 Preparing $container_runtime image..."
+if ! "$container_runtime" image inspect "$image_name" >/dev/null 2>&1; then
+  "$container_runtime" build \
+    --label "$containerfile_hash_label=$current_containerfile_hash" \
+    -t "$image_name" \
+    -f "$containerfile" \
+    "$repo_root"
 elif [ "$current_containerfile_hash" != "$previous_manifest_hash" ]; then
-  podman build -t "$image_name" -f "$containerfile" "$repo_root"
+  "$container_runtime" build \
+    --label "$containerfile_hash_label=$current_containerfile_hash" \
+    -t "$image_name" \
+    -f "$containerfile" \
+    "$repo_root"
 fi
 
-printf '%s\n' "$current_containerfile_hash" > "$containerfile_hash_file"
+if ! "$container_runtime" volume inspect "$home_volume" >/dev/null 2>&1; then
+  "$container_runtime" volume create "$home_volume" >/dev/null
+fi
 
-echo "💻 Starting container..."
+prep_args=(--rm --volume "$home_volume:$container_home")
+prep_args+=(--user root)
+
+"$container_runtime" run \
+  "${prep_args[@]}" \
+  "$image_name" \
+  bash -lc "
+  set -euo pipefail
+  mkdir -p '$container_home'
+  chown $(id -u):$(id -g) '$container_home' 2>/dev/null || true
+  chmod 0700 '$container_home'
+"
+
+echo "💻 Starting container with $container_runtime..."
 port_args=()
 effective_published_ports=()
+runtime_args=()
 
-host_port_is_busy() {
-  local port="$1"
-
-  if command -v timeout >/dev/null 2>&1; then
-    timeout 0.2 bash -c "exec 3<>/dev/tcp/127.0.0.1/$port" >/dev/null 2>&1
-    return $?
-  fi
-
-  bash -c "exec 3<>/dev/tcp/127.0.0.1/$port" >/dev/null 2>&1
-}
+case "$container_runtime" in
+  podman)
+    runtime_args+=(--userns keep-id --security-opt label=disable)
+    ;;
+  docker)
+    runtime_args+=(--user "$(id -u):$(id -g)")
+    ;;
+esac
 
 for port_mapping in $published_ports; do
   host_port="${port_mapping%%:*}"
@@ -80,28 +144,39 @@ elif [ "${#effective_published_ports[@]}" -eq 0 ]; then
   echo "⚠️  No host ports were published. Set CONDUCTOR_AGENT_PORTS if you need specific mappings."
 fi
 
-podman run \
-  --rm \
-  --interactive \
-  --tty \
-  --name "$container_name" \
-  --hostname "$container_name" \
-  --userns keep-id \
-  --security-opt label=disable \
-  "${port_args[@]}" \
-  --volume "$repo_root:$workspace_mount:rw" \
-  --workdir "$workspace_mount" \
-  --env HOME="$container_home" \
-  --env HOST=0.0.0.0 \
-  --tmpfs /tmp:rw,exec,nosuid,nodev \
-  "$image_name" \
+run_args=(
+  run
+  --rm
+  --interactive
+  --tty
+  --name "$container_name"
+  --hostname "$container_name"
+)
+
+if [ "${#runtime_args[@]}" -gt 0 ]; then
+  run_args+=("${runtime_args[@]}")
+fi
+
+if [ "${#port_args[@]}" -gt 0 ]; then
+  run_args+=("${port_args[@]}")
+fi
+
+run_args+=(
+  --volume "$repo_root:$workspace_mount:rw"
+  --volume "$home_volume:$container_home"
+  --workdir "$workspace_mount"
+  --env HOME="$container_home"
+  --env HOST=0.0.0.0
+  --tmpfs /tmp:rw,exec,nosuid,nodev
+  "$image_name"
   bash -lc "
   set -euo pipefail
-  mkdir -p \"$container_home\"
-  export PATH=\"/usr/local/bin:\$HOME/.local/bin:/root/.local/bin:\$PATH\"
+  mkdir -p \"\$HOME\"
+  export PATH=\"/usr/local/bin:\$HOME/.local/bin:\$PATH\"
   opencode --version
+  echo 'Using runtime: $container_runtime.'
   echo 'Container name is $container_name.'
-  echo 'Container HOME persists at $container_home.'
+  echo 'Container HOME persists in named volume $home_volume at $container_home.'
   echo 'Repo is mounted at $workspace_mount.'
   echo 'Requested ports: ${published_ports:-(none)}.'
   echo 'Published ports: ${effective_published_ports[*]:-(none)}.'
@@ -110,6 +185,12 @@ podman run \
     exec bash
   fi
   exec \"\$@\"
-" 
-  bash \
-  "${container_command[@]}"
+"
+  bash
+)
+
+if [ "${#container_command[@]}" -gt 0 ]; then
+  run_args+=("${container_command[@]}")
+fi
+
+"$container_runtime" "${run_args[@]}"

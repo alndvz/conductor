@@ -9,7 +9,7 @@ An OpenCode plugin project. The plugin (`conductor-plugin.ts`) watches `TASKS.md
 - `.opencode/opencode.json` — agent config (tools enabled, model)
 - `.opencode/commands/detect-arch.md` — custom command for architecture analysis
 - `conductor.sh` — launcher script; sets `CONDUCTOR=1` and runs `opencode --agent conductor`
-- `dev.sh` — builds and runs a Podman container (Fedora, `conductor-agent-dev:latest`)
+- `dev.sh` — builds and runs a Fedora dev container (prefers Podman, falls back to Docker, `conductor-agent-dev:latest`)
 - `logs.sh` — tails the opencode log file
 
 ## Key behaviors

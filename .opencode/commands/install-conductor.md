@@ -42,6 +42,8 @@ Read these files from the **current** (source) repository before copying:
 7. `.opencode/opencode.json` — source config (contains the `agent` section to
    merge)
 8. `conductor.sh` — launcher script
+9. `dev.sh` — container launcher script
+10. `Containerfile.dev` — dev container definition
 
 ## Step 1 — Validate and create target directories
 
@@ -122,10 +124,15 @@ Check whether `$ARGUMENTS/TASKS.md` exists:
 
 Report whether the file was created or already existed.
 
-## Step 6 — Copy and chmod the launcher
+## Step 6 — Copy launchers and dev container files
 
 1. Copy `conductor.sh` from the source to `$ARGUMENTS/conductor.sh`.
 2. Make it executable: `chmod +x $ARGUMENTS/conductor.sh`.
+3. Copy `dev.sh` from the source to `$ARGUMENTS/dev.sh`.
+4. Make it executable: `chmod +x $ARGUMENTS/dev.sh`.
+5. Copy `Containerfile.dev` from the source to `$ARGUMENTS/Containerfile.dev`.
+6. Do not create repo-local secret state directories; `dev.sh` persists the
+   container `HOME` in a runtime-managed named volume.
 
 ## Step 7 — Install npm dependencies
 
@@ -166,4 +173,6 @@ Summarize every action taken. Use a table for clarity:
 | Set default_agent: conductor  | set / already-set / kept-existing: <other> |
 | Scaffolded TASKS.md           | created / already-existed |
 | Copied conductor.sh + chmod   | done                     |
+| Copied dev.sh + chmod         | done                     |
+| Copied Containerfile.dev      | done                     |
 | Installed npm dependencies    | done                     |

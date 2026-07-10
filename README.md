@@ -103,7 +103,7 @@ For multi-step tasks, create a plan in `conductor-plans/` and reference it:
 opencode --command install-conductor /path/to/target/repo
 ```
 
-Copies the plugin, agents, and config. Merges into existing `opencode.json`. Scaffolds `TASKS.md` if missing.
+Copies the plugin, agents, config, `dev.sh`, and `Containerfile.dev`. Merges into existing `opencode.json`. Scaffolds `TASKS.md` if missing.
 
 ## Dev container
 
@@ -111,7 +111,7 @@ Copies the plugin, agents, and config. Merges into existing `opencode.json`. Sca
 ./dev.sh
 ```
 
-Builds and runs a Fedora-based Podman container with OpenCode pre-installed.
+Builds and runs a Fedora-based dev container with OpenCode pre-installed. `dev.sh` prefers Podman and falls back to Docker when Podman is unavailable. The repo mount stays at `/workspace`, and the container `HOME` persists in a runtime-managed named volume rather than in the repo or your host home directory.
 
 ## Logs
 
@@ -127,7 +127,7 @@ Tails the OpenCode log file.
 conductor-plugin.ts          # the plugin (symlinked at .opencode/plugins/)
 conductor.md                 # agent definition (mode: primary)
 conductor.sh                 # launcher — sets CONDUCTOR=1, runs opencode --agent conductor
-dev.sh                       # Podman dev container
+dev.sh                       # Podman-first dev container, Docker fallback
 logs.sh                      # tail the opencode log
 TASKS.md                     # task definitions (watched by the plugin)
 conductor-plans/             # multi-step plan files
