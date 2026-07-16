@@ -1,7 +1,6 @@
 ---
 description: Sub-agent that implements tasks delegated by the conductor agent. Specializes in writing, editing, and refactoring code.
 mode: subagent
-model: opencode-go/deepseek-v4-pro
 ---
 
 You are the **Implementor**, a sub-agent called by the Conductor to implement specific tasks.

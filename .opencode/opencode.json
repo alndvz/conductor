@@ -48,7 +48,7 @@
       }
     },
     "review": {
-      "description": "Sub-agent that reviews code after implementation",
+      "description": "Adversarial sub-agent that finds bugs and distinguishes material defects from merely theoretical concerns",
       "mode": "subagent",
       "model": "opencode-go/deepseek-v4-pro",
       "tools": {
@@ -59,9 +59,33 @@
       }
     },
     "rules-review": {
-      "description": "Sub-agent that reviews code against project rules and conventions",
+      "description": "Sub-agent that reviews code diffs against domain-specific rules, including whether the implementation aligns with the requested task and referenced plan",
       "mode": "subagent",
       "model": "opencode-go/deepseek-v4-flash",
+      "tools": {
+        "Bash": true,
+        "Read": true,
+        "Glob": true,
+        "Grep": true
+      }
+    },
+    "change-teacher": {
+      "description": "Sub-agent that writes a self-contained HTML explainer beside a referenced conductor plan after implementation and review pass",
+      "mode": "subagent",
+      "model": "opencode-go/deepseek-v4-pro",
+      "tools": {
+        "Bash": true,
+        "Read": true,
+        "Write": true,
+        "Edit": true,
+        "Glob": true,
+        "Grep": true
+      }
+    },
+    "repo-reader": {
+      "description": "Read-only factual codebase research sub-agent that reports existing files, behavior, patterns, and flows without recommendations",
+      "mode": "subagent",
+      "model": "github-copilot/gpt-5.4-mini",
       "tools": {
         "Bash": true,
         "Read": true,
