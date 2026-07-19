@@ -1,5 +1,7 @@
 import type { Plugin, PluginInput } from "@opencode-ai/plugin"
 
+declare const process: { env: Record<string, string | undefined> }
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type Shell = PluginInput["$"]
@@ -51,22 +53,9 @@ function dequeueAll(
 
 // ── Notifications ────────────────────────────────────────────────────────────
 
-const LOGO = [
-  "  ██████╗ ██████╗ ███╗   ██╗██████╗ ██╗   ██╗ ██████╗████████╗ ██████╗ ██████╗ ",
-  " ██╔════╝██╔═══██╗████╗  ██║██╔══██╗██║   ██║██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗",
-  " ██║     ██║   ██║██╔██╗ ██║██║  ██║██║   ██║██║        ██║   ██║   ██║██████╔╝",
-  " ██║     ██║   ██║██║╚██╗██║██║  ██║██║   ██║██║        ██║   ██║   ██║██╔══██╗",
-  " ╚██████╗╚██████╔╝██║ ╚████║██████╔╝╚██████╔╝╚██████╗   ██║   ╚██████╔╝██║  ██║",
-  "  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═════╝  ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝",
-]
-
 function formatFileChangeNotification(file: string, commit: string, diff: string): string {
   const codeFence = "```"
   return `File ${file} changed (commit ${commit.slice(0, 7)})\n\n${codeFence}diff\n${diff}\n${codeFence}`
-}
-
-function formatAgentSwitchNotification(agent: string): string {
-  return `Agent switched to ${agent}`
 }
 
 // ── Session state ────────────────────────────────────────────────────────────
@@ -80,7 +69,6 @@ function removeSession(
   tickIntervals: Map<string, ReturnType<typeof setInterval>>,
   sessionStatus: Map<string, SessionStatus>,
   pendingMessages: Map<string, unknown[]>,
-  giftedSessions: Set<string>,
   sessionID: string,
 ): void {
   activeSessions.delete(sessionID)
@@ -91,7 +79,6 @@ function removeSession(
   }
   sessionStatus.delete(sessionID)
   pendingMessages.delete(sessionID)
-  giftedSessions.delete(sessionID)
 }
 
 function setStatus(
@@ -136,7 +123,6 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
   const fileHashes = new Map<string, string>()
   const sessionStatus = new Map<string, SessionStatus>()
   const pendingMessages = new Map<string, QueuedMessage[]>()
-  const giftedSessions = new Set<string>()
 
   async function drainPending(sessionID: string) {
     const messages = dequeueAll(pendingMessages, sessionID)
@@ -233,7 +219,7 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
   return {
     event: async ({ event }) => {
       if (event.type === "session.created") {
-        const sessionID = event.properties?.sessionID
+        const sessionID = event.properties.info.id
         if (!sessionID) return
         addSession(activeSessions, sessionID)
 
@@ -246,24 +232,6 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
         })
 
         startTick(sessionID)
-      }
-
-      if (event.type === "session.next.agent.switched") {
-        const { sessionID, agent } = event.properties || {}
-        if (!sessionID) return
-        await client.app.log({
-          body: {
-            service: "conductor-plugin",
-            level: "info",
-            message: `### CONDUCTOR-PLUGIN AGENT SWITCHED | session=${sessionID} | agent=${agent} ###`,
-          },
-        })
-        if (agent === "conductor" && !giftedSessions.has(sessionID)) {
-          giftedSessions.add(sessionID)
-          await sendOrQueue(sessionID, LOGO.join("\n"), true)
-        } else {
-          await sendOrQueue(sessionID, formatAgentSwitchNotification(agent), true)
-        }
       }
 
       if (event.type === "session.status") {
@@ -283,9 +251,9 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
       }
 
       if (event.type === "session.deleted") {
-        const sessionID = event.properties?.sessionID
+        const sessionID = event.properties.info.id
         if (!sessionID) return
-        removeSession(activeSessions, tickIntervals, sessionStatus, pendingMessages, giftedSessions, sessionID)
+        removeSession(activeSessions, tickIntervals, sessionStatus, pendingMessages, sessionID)
       }
     },
 
@@ -297,7 +265,6 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
       fileHashes.clear()
       sessionStatus.clear()
       pendingMessages.clear()
-      giftedSessions.clear()
     },
   }
 }

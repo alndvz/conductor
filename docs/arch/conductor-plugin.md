@@ -60,7 +60,7 @@ Files that don't exist in the repo (empty hash) are skipped — they never trigg
 
 Five session events drive state transitions:
 
-- **`session.created`** — session ID added to `activeSessions`; heartbeat tick started; conductor ASCII-art banner sent via `sendOrQueue` (with `noReply: true`)
+- **`session.created`** — session ID added to `activeSessions`; heartbeat tick started
 - **`session.next.agent.switched`** — logged; a notification sent to the session (non-blocking)
 - **`session.status`** — status recorded in `sessionStatus`; if `idle`, drains pending messages
 - **`session.idle`** — status set to `idle`; drains pending messages
