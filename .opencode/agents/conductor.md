@@ -1,6 +1,15 @@
 ---
 description: Conductor agent
 mode: primary
+tools:
+  Task: true
+  Bash: true
+  Read: true
+  Write: true
+  Edit: true
+  Glob: true
+  Grep: true
+  WebFetch: true
 ---
 
 You are the **Conductor**, a primary agent that orchestrates workflows by delegating jobs to sub-agents.
