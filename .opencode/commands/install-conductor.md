@@ -56,24 +56,53 @@ missing):
 | `$ARGUMENTS/.opencode/plugins/`  | Auto-discovered plugins     |
 | `$ARGUMENTS/.opencode/agents/`   | Agent definition files      |
 
-## Step 2 — Copy the plugin
+## Step 2 — Install the plugin
 
-Copy `conductor-plugin.ts` from the source repo into
-`$ARGUMENTS/.opencode/plugins/conductor-plugin.ts`.
+Check whether `$ARGUMENTS/.opencode/plugins/conductor-plugin.ts` exists:
+
+### If it does not exist
+
+Copy `conductor-plugin.ts` from the source repo into the target. Status:
+`created`.
+
+### If it exists
+
+Read the existing target file and compare its contents to the source file
+(already read in the Source files step):
+
+- **Contents are identical** — no action needed. Status: `identical`.
+- **Contents differ** — the target has a modified version. Do NOT overwrite it.
+  Report the difference and ask the user how to proceed before continuing.
+  Status: `differs — awaiting user decision`.
 
 > **Note**: Plugins in `.opencode/plugins/` are auto-discovered by opencode; no
 > config entry is needed.
 
-## Step 3 — Copy agent definitions
+## Step 3 — Install agent definitions
 
-Copy these five files verbatim (no modifications needed) from the source's
-`.opencode/agents/` into `$ARGUMENTS/.opencode/agents/`:
+For each of these five agent definition files:
 
 - `conductor.md`
 - `implementor.md`
 - `review.md`
 - `feature.md`
 - `rules-review.md`
+
+Check whether the target file exists at
+`$ARGUMENTS/.opencode/agents/<filename>`:
+
+### If it does not exist
+
+Copy the source file verbatim into the target. Status: `created`.
+
+### If it exists
+
+Read the existing target file and compare its contents to the source file:
+
+- **Contents are identical** — no action needed. Status: `identical`.
+- **Contents differ** — the target has a modified version. Do NOT overwrite it.
+  Report the filename and ask the user how to proceed before continuing.
+  Status: `differs — awaiting user decision`.
 
 ## Step 4 — Merge the config
 
@@ -109,7 +138,11 @@ Check whether `$ARGUMENTS/.opencode/opencode.json` exists:
 
 Check whether `$ARGUMENTS/TASKS.md` exists:
 
-- If it exists, do nothing — the target already has a task list.
+- If it exists, read it. If it has content (more than just whitespace or
+  comments), do nothing — the target already has a task list. Status:
+  `already-existed`.
+- If it exists but is empty (or contains only the placeholder comment from a
+  prior install), report that it already exists. Status: `already-existed`.
 - If it does not exist, create it with this content:
 
   ```markdown
@@ -120,12 +153,27 @@ Check whether `$ARGUMENTS/TASKS.md` exists:
 
   ```
 
-Report whether the file was created or already existed.
+  Status: `created`.
 
-## Step 6 — Copy and chmod the launcher
+## Step 6 — Install the launcher
+
+Check whether `$ARGUMENTS/conductor.sh` exists:
+
+### If it does not exist
 
 1. Copy `conductor.sh` from the source to `$ARGUMENTS/conductor.sh`.
 2. Make it executable: `chmod +x $ARGUMENTS/conductor.sh`.
+   Status: `created`.
+
+### If it exists
+
+Read the existing target file and compare its contents to the source file:
+
+- **Contents are identical** — ensure it is executable (`chmod +x` if needed).
+  Status: `identical`.
+- **Contents differ** — the target has a modified version. Do NOT overwrite it.
+  Report the difference and ask the user how to proceed before continuing.
+  Status: `differs — awaiting user decision`.
 
 ## Step 7 — Install npm dependencies
 
@@ -153,17 +201,26 @@ In the target directory (`$ARGUMENTS`), check whether a `package.json` exists:
 
 Summarize every action taken. Use a table for clarity:
 
-| Action                        | Status                    |
-| ----------------------------- | ------------------------- |
-| Created target directories    | created / already-existed |
-| Copied conductor-plugin.ts    | done                     |
-| Copied agent definitions (5)  | done                     |
-| Merged config: conductor      | added / skipped          |
-| Merged config: implementor    | added / skipped          |
-| Merged config: review         | added / skipped          |
-| Merged config: feature        | added / skipped          |
-| Merged config: rules-review   | added / skipped          |
-| Set default_agent: conductor  | set / already-set / kept-existing: <other> |
-| Scaffolded TASKS.md           | created / already-existed |
-| Copied conductor.sh + chmod   | done                     |
-| Installed npm dependencies    | done                     |
+| Action                          | Status                    |
+| ------------------------------- | ------------------------- |
+| Created target directories      | created / already-existed |
+| conductor-plugin.ts             | created / identical / differs* |
+| conductor.md                    | created / identical / differs* |
+| implementor.md                  | created / identical / differs* |
+| review.md                       | created / identical / differs* |
+| feature.md                      | created / identical / differs* |
+| rules-review.md                 | created / identical / differs* |
+| Merged config: conductor        | added / skipped           |
+| Merged config: implementor      | added / skipped           |
+| Merged config: review           | added / skipped           |
+| Merged config: feature          | added / skipped           |
+| Merged config: rules-review     | added / skipped           |
+| Set default_agent: conductor    | set / already-set / kept-existing: <other> |
+| Scaffolded TASKS.md             | created / already-existed |
+| conductor.sh                    | created / identical / differs* |
+| Installed npm dependencies      | done                      |
+
+> \* If any file status is `differs`, pause after the report and ask the user
+> how to handle the differing file(s) before continuing. Do not proceed with
+> any further steps (including npm install in Step 7 if it hasn't already run)
+> until the user resolves the conflict.

@@ -8,7 +8,7 @@ OpenCode is powerful, but a single agent doing everything gets sloppy — it ski
 
 - **Conductor** — orchestrates, delegates, arbitrates. It never touches code.
 - **Implementor** — writes the code. Has full write tools, no distractions.
-- **Review** — code review. Read-only, focused on correctness and style.
+- **Review** — adversarial code review. Read-only, aggressively tries to prove the code has bugs.
 - **Rules-review** — domain-specific rule checking. Run in parallel with Review.
 
 Every task flows through **implement → dual review → commit**. Reviews can block, request changes, or be overridden (with the conductor acting as arbitrator). The result: higher quality code, fewer regressions, and no more "the agent just did something weird."
@@ -55,7 +55,7 @@ For simple one-liners the feature agent skips the plan and writes a flat checkli
         │
         ├── implementor ── writes code
         │
-        ├── review ─────── code review (style, correctness)
+         ├── review ─────── adversarial code review (tries to prove bugs exist)
         └── rules-review ── domain rule check (parallel)
               │
               ▼
@@ -71,7 +71,7 @@ For simple one-liners the feature agent skips the plan and writes a flat checkli
 | **conductor** | Orchestrates, delegates, arbitrates reviews | Task, Bash, Read, Write, Edit, Glob, Grep, WebFetch |
 | **feature** | Discusses feature requests conversationally before committing to TASKS.md | Task, Bash, Read, Write, Edit, Glob, Grep |
 | **implementor** | Writes and edits code | Bash, Read, Write, Edit, Glob, Grep, WebFetch |
-| **review** | General code review (style, correctness) | Bash, Read, Glob, Grep |
+| **review** | Adversarial code review — assumes the code is wrong until proven otherwise | Bash, Read, Glob, Grep |
 | **rules-review** | Checks 2 rules: simplicity and minimal-diff | Bash, Read, Glob, Grep |
 
 ## Plugin

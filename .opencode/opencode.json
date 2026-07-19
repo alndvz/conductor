@@ -48,7 +48,7 @@
       }
     },
     "review": {
-      "description": "Sub-agent that reviews code after implementation",
+      "description": "Adversarial sub-agent that aggressively tries to prove the code has bugs",
       "mode": "subagent",
       "model": "opencode-go/deepseek-v4-pro",
       "tools": {

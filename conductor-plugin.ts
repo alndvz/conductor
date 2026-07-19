@@ -80,6 +80,7 @@ function removeSession(
   tickIntervals: Map<string, ReturnType<typeof setInterval>>,
   sessionStatus: Map<string, SessionStatus>,
   pendingMessages: Map<string, unknown[]>,
+  giftedSessions: Set<string>,
   sessionID: string,
 ): void {
   activeSessions.delete(sessionID)
@@ -90,6 +91,7 @@ function removeSession(
   }
   sessionStatus.delete(sessionID)
   pendingMessages.delete(sessionID)
+  giftedSessions.delete(sessionID)
 }
 
 function setStatus(
@@ -134,6 +136,7 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
   const fileHashes = new Map<string, string>()
   const sessionStatus = new Map<string, SessionStatus>()
   const pendingMessages = new Map<string, QueuedMessage[]>()
+  const giftedSessions = new Set<string>()
 
   async function drainPending(sessionID: string) {
     const messages = dequeueAll(pendingMessages, sessionID)
@@ -243,8 +246,6 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
         })
 
         startTick(sessionID)
-
-        await sendOrQueue(sessionID, LOGO.join("\n"), true)
       }
 
       if (event.type === "session.next.agent.switched") {
@@ -257,7 +258,12 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
             message: `### CONDUCTOR-PLUGIN AGENT SWITCHED | session=${sessionID} | agent=${agent} ###`,
           },
         })
-        await sendOrQueue(sessionID, formatAgentSwitchNotification(agent), true)
+        if (agent === "conductor" && !giftedSessions.has(sessionID)) {
+          giftedSessions.add(sessionID)
+          await sendOrQueue(sessionID, LOGO.join("\n"), true)
+        } else {
+          await sendOrQueue(sessionID, formatAgentSwitchNotification(agent), true)
+        }
       }
 
       if (event.type === "session.status") {
@@ -279,7 +285,7 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
       if (event.type === "session.deleted") {
         const sessionID = event.properties?.sessionID
         if (!sessionID) return
-        removeSession(activeSessions, tickIntervals, sessionStatus, pendingMessages, sessionID)
+        removeSession(activeSessions, tickIntervals, sessionStatus, pendingMessages, giftedSessions, sessionID)
       }
     },
 
@@ -291,6 +297,7 @@ export const ConductorPlugin: Plugin = async ({ client, directory, worktree, $ }
       fileHashes.clear()
       sessionStatus.clear()
       pendingMessages.clear()
+      giftedSessions.clear()
     },
   }
 }
