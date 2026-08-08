@@ -41,6 +41,8 @@ Read these files from the **current** (source) repository before copying:
 10. `conductor.sh` — launcher script
 11. `dev.sh` — container launcher script
 12. `Containerfile.dev` — dev container definition
+13. `dev-egress-allowlist.txt` — baked-in dev container egress allow list
+14. `dev-squid.conf` — filtering proxy configuration
 
 ## Step 1 — Validate and create target directories
 
@@ -182,6 +184,8 @@ For each of these files:
 
 - `dev.sh`
 - `Containerfile.dev`
+- `dev-egress-allowlist.txt`
+- `dev-squid.conf`
 
 Check whether the target file exists at `$ARGUMENTS/<filename>`:
 
@@ -252,6 +256,8 @@ Summarize every action taken. Use a table for clarity:
 | conductor.sh                    | created / identical / differs* |
 | dev.sh                          | created / identical / differs* |
 | Containerfile.dev               | created / identical / differs* |
+| dev-egress-allowlist.txt         | created / identical / differs* |
+| dev-squid.conf                   | created / identical / differs* |
 | Installed npm dependencies      | done                      |
 
 > \* If any file status is `differs`, pause after the report and ask the user

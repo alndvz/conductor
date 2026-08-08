@@ -5,8 +5,6 @@ RUN dnf -y update && \
       bash \
       bubblewrap \
       curl \
-      docker \
-      docker-compose \
       findutils \
       gcc-c++ \
       git \
@@ -16,8 +14,12 @@ RUN dnf -y update && \
       npm \
       procps-ng \
       shadow-utils \
+      squid \
       which && \
     npm install -g opencode-ai bun && \
     dnf clean all
+
+COPY dev-egress-allowlist.txt /etc/squid/egress-allowlist.txt
+COPY dev-squid.conf /etc/squid/conductor-squid.conf
 
 WORKDIR /workspace

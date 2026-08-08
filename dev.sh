@@ -12,6 +12,14 @@ container_command=()
 container_runtime=""
 home_volume="${CONDUCTOR_AGENT_HOME_VOLUME:-}"
 containerfile_hash_label="io.conductor.containerfile-hash"
+egress_allowlist="$repo_root/dev-egress-allowlist.txt"
+squid_config="$repo_root/dev-squid.conf"
+proxy_container_name="$container_name-egress-proxy"
+internal_network="$container_name-internal"
+external_network="$container_name-external"
+proxy_started=0
+internal_network_created=0
+external_network_created=0
 
 hash_value() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -40,6 +48,23 @@ host_port_is_busy() {
   fi
 
   bash -c "exec 3<>/dev/tcp/127.0.0.1/$port" >/dev/null 2>&1
+}
+
+cleanup() {
+  local exit_code="$?"
+  trap - EXIT INT TERM
+
+  if [ "$proxy_started" -eq 1 ]; then
+    "$container_runtime" rm --force "$proxy_container_name" >/dev/null 2>&1 || true
+  fi
+  if [ "$internal_network_created" -eq 1 ]; then
+    "$container_runtime" network rm "$internal_network" >/dev/null 2>&1 || true
+  fi
+  if [ "$external_network_created" -eq 1 ]; then
+    "$container_runtime" network rm "$external_network" >/dev/null 2>&1 || true
+  fi
+
+  exit "$exit_code"
 }
 
 while [ "$#" -gt 0 ]; do
@@ -71,7 +96,7 @@ if [ -z "$home_volume" ]; then
   home_volume="conductor-agent-home-$repo_hash"
 fi
 
-current_containerfile_hash="$(hash_value "$containerfile")"
+current_containerfile_hash="$(hash_string "$(hash_value "$containerfile") $(hash_value "$egress_allowlist") $(hash_value "$squid_config")")"
 previous_manifest_hash=""
 
 if "$container_runtime" image inspect "$image_name" >/dev/null 2>&1; then
@@ -98,6 +123,13 @@ if ! "$container_runtime" volume inspect "$home_volume" >/dev/null 2>&1; then
 fi
 
 prep_args=(--rm --volume "$home_volume:$container_home")
+
+case "$container_runtime" in
+  podman)
+    prep_args+=(--userns keep-id --security-opt label=disable)
+    ;;
+esac
+
 prep_args+=(--user root)
 
 "$container_runtime" run \
@@ -114,6 +146,30 @@ echo "💻 Starting container with $container_runtime..."
 port_args=()
 effective_published_ports=()
 runtime_args=()
+
+trap cleanup EXIT INT TERM
+
+"$container_runtime" network create --internal "$internal_network" >/dev/null
+internal_network_created=1
+"$container_runtime" network create "$external_network" >/dev/null
+external_network_created=1
+
+"$container_runtime" run \
+  --detach \
+  --name "$proxy_container_name" \
+  --network "$internal_network" \
+  --network "$external_network" \
+  "$image_name" \
+  squid -N -f /etc/squid/conductor-squid.conf >/dev/null
+proxy_started=1
+
+proxy_ip="$($container_runtime inspect --format "{{with index .NetworkSettings.Networks \"$internal_network\"}}{{.IPAddress}}{{end}}" "$proxy_container_name")"
+if [ -z "$proxy_ip" ]; then
+  echo "Could not determine the egress proxy address." >&2
+  exit 1
+fi
+
+proxy_url="http://$proxy_ip:3128"
 
 case "$container_runtime" in
   podman)
@@ -151,6 +207,9 @@ run_args=(
   --tty
   --name "$container_name"
   --hostname "$container_name"
+  --network "$internal_network"
+  --dns 127.0.0.1
+  --add-host "conductor-egress-proxy:$proxy_ip"
 )
 
 if [ "${#runtime_args[@]}" -gt 0 ]; then
@@ -167,6 +226,12 @@ run_args+=(
   --workdir "$workspace_mount"
   --env HOME="$container_home"
   --env HOST=0.0.0.0
+  --env HTTP_PROXY="$proxy_url"
+  --env HTTPS_PROXY="$proxy_url"
+  --env http_proxy="$proxy_url"
+  --env https_proxy="$proxy_url"
+  --env NO_PROXY="localhost,127.0.0.1,::1"
+  --env no_proxy="localhost,127.0.0.1,::1"
   --tmpfs /tmp:rw,exec,nosuid,nodev
   "$image_name"
   bash -lc "
@@ -178,6 +243,7 @@ run_args+=(
   echo 'Container name is $container_name.'
   echo 'Container HOME persists in named volume $home_volume at $container_home.'
   echo 'Repo is mounted at $workspace_mount.'
+  echo 'Outbound HTTP(S) is restricted by dev-egress-allowlist.txt.'
   echo 'Requested ports: ${published_ports:-(none)}.'
   echo 'Published ports: ${effective_published_ports[*]:-(none)}.'
 

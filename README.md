@@ -113,6 +113,8 @@ Copies the plugin, agents, config, `dev.sh`, and `Containerfile.dev`. Merges int
 
 Builds and runs a Fedora-based dev container with OpenCode pre-installed. `dev.sh` prefers Podman and falls back to Docker when Podman is unavailable. The repo mount stays at `/workspace`, and the container `HOME` persists in a runtime-managed named volume rather than in the repo or your host home directory.
 
+Outbound traffic from the dev container is default-denied. `dev.sh` starts a separate filtering proxy and puts the dev container on an internal-only network with DNS disabled. HTTP and HTTPS requests are allowed only for hostnames baked into [`dev-egress-allowlist.txt`](dev-egress-allowlist.txt). Edit that file before running `./dev.sh` when the project needs another destination; changing it automatically rebuilds the development image.
+
 ## Logs
 
 ```bash
@@ -128,6 +130,8 @@ conductor-plugin.ts          # the plugin (symlinked at .opencode/plugins/)
 conductor.md                 # agent definition (mode: primary)
 conductor.sh                 # launcher — sets CONDUCTOR=1, runs opencode --agent conductor
 dev.sh                       # Podman-first dev container, Docker fallback
+dev-egress-allowlist.txt     # baked-in dev container egress destinations
+dev-squid.conf               # filtering proxy policy
 logs.sh                      # tail the opencode log
 TASKS.md                     # task definitions (watched by the plugin)
 conductor-plans/             # multi-step plan files

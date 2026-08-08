@@ -1,0 +1,11 @@
+# OpenCode and the providers configured in .opencode/opencode.json
+.opencode.ai
+models.dev
+api.githubcopilot.com
+
+# GitHub source, API, release, and artifact endpoints
+.github.com
+.githubusercontent.com
+
+# npm dependencies
+registry.npmjs.org
