@@ -34,15 +34,14 @@ Read these files from the **current** (source) repository before copying:
 4. `.opencode/agents/review.md` — Reviewer agent definition
 5. `.opencode/agents/feature.md` — Feature agent definition
 6. `.opencode/agents/rules-review.md` — Rules-review agent definition
-7. `.opencode/agents/change-teacher.md` — Change-teacher agent definition
-8. `.opencode/agents/repo-reader.md` — Repo-reader agent definition
-9. `.opencode/opencode.json` — source config (contains the `agent` section to
+7. `.opencode/agents/repo-reader.md` — Repo-reader agent definition
+8. `.opencode/opencode.json` — source config (contains the `agent` section to
    merge)
-10. `conductor.sh` — launcher script
-11. `dev.sh` — container launcher script
-12. `Containerfile.dev` — dev container definition
-13. `dev-egress-allowlist.txt` — baked-in dev container egress allow list
-14. `dev-squid.conf` — filtering proxy configuration
+9. `conductor.sh` — launcher script
+10. `dev.sh` — container launcher script
+11. `Containerfile.dev` — dev container definition
+12. `dev-egress-allowlist.txt` — baked-in dev container egress allow list
+13. `dev-squid.conf` — filtering proxy configuration
 
 ## Step 1 — Validate and create target directories
 
@@ -81,14 +80,13 @@ Read the existing target file and compare its contents to the source file
 
 ## Step 3 — Install agent definitions
 
-For each of these seven agent definition files:
+For each of these six agent definition files:
 
 - `conductor.md`
 - `implementor.md`
 - `review.md`
 - `feature.md`
 - `rules-review.md`
-- `change-teacher.md`
 - `repo-reader.md`
 
 Check whether the target file exists at
@@ -116,7 +114,7 @@ Check whether `$ARGUMENTS/.opencode/opencode.json` exists:
 1. Read the target config file.
 2. Merge the `agent` section from the source config into it. For each agent key
    in the source (`conductor`, `implementor`, `review`, `feature`,
-   `rules-review`, `change-teacher`, `repo-reader`):
+    `rules-review`, `repo-reader`):
    - If the target already has that agent key, **skip it** (do not overwrite).
    - If the target does not have that agent key, add it.
 3. Write the merged config back — preserve all existing top-level keys, the
@@ -242,14 +240,12 @@ Summarize every action taken. Use a table for clarity:
 | review.md                       | created / identical / differs* |
 | feature.md                      | created / identical / differs* |
 | rules-review.md                 | created / identical / differs* |
-| change-teacher.md               | created / identical / differs* |
 | repo-reader.md                  | created / identical / differs* |
 | Merged config: conductor        | added / skipped           |
 | Merged config: implementor      | added / skipped           |
 | Merged config: review           | added / skipped           |
 | Merged config: feature          | added / skipped           |
 | Merged config: rules-review     | added / skipped           |
-| Merged config: change-teacher   | added / skipped           |
 | Merged config: repo-reader      | added / skipped           |
 | Set default_agent: conductor    | set / already-set / kept-existing: <other> |
 | Scaffolded TASKS.md             | created / already-existed |

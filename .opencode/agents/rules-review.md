@@ -1,6 +1,8 @@
 ---
 description: Sub-agent that reviews code diffs against domain-specific rules, including whether the implementation aligns with the requested task and referenced plan.
 mode: subagent
+model: openai/gpt-5.6-luna
+variant: low
 tools:
   Bash: true
   Read: true

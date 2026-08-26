@@ -3,6 +3,15 @@
 models.dev
 api.githubcopilot.com
 
+# DeepSeek API
+api.deepseek.com
+
+# OpenAI (auth + API)
+.openai.com
+
+# OpenAI ChatGPT backend (OAuth-backed provider)
+.chatgpt.com
+
 # GitHub source, API, release, and artifact endpoints
 .github.com
 .githubusercontent.com
